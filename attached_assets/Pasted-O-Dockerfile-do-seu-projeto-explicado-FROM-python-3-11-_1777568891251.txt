@@ -1,0 +1,82 @@
+O Dockerfile do seu projeto, explicado
+FROM python:3.11-slim
+
+Imagem base. Pega um Linux já com Python 3.11 instalado. O slim é a versão "enxuta" — pesa menos, deploy mais rápido.
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV FLASK_ENV=production
+ENV PORT=5000
+ENV DIGITAL_MASTERY_MODE=true
+
+Variáveis de ambiente fixas. Aqui só estão as que NÃO são secretas:
+
+PYTHONUNBUFFERED=1 → faz o print aparecer na hora no log.
+PYTHONDONTWRITEBYTECODE=1 → não cria arquivinhos .pyc chatos.
+FLASK_ENV=production → liga o modo produção do Flask.
+PORT=5000 → porta padrão.
+DIGITAL_MASTERY_MODE=true → flag interna do seu sistema.
+Atenção: DATABASE_URL e SESSION_SECRET não estão aqui (e nem podem estar). Esses são secrets, têm que ser configurados no painel do destino.
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    postgresql-client \
+    gcc \
+    libpq-dev \
+    libgl1 \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    libfontconfig1 \
+    libice6 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+Instala pacotes do sistema operacional. Não são pacotes Python, são bibliotecas do Linux que algumas libs Python precisam pra funcionar:
+
+postgresql-client → utilitários do Postgres (o pg_isready que aparece no entrypoint).
+gcc + libpq-dev → necessários pra compilar o psycopg2 (driver do Postgres).
+libgl1, libglib2.0-0, libsm6, etc. → bibliotecas gráficas que libs como Pillow, OpenCV ou geradores de PDF costumam exigir.
+rm -rf /var/lib/apt/lists/* → limpa o cache do apt pra imagem ficar menor.
+WORKDIR /app
+
+Define a "pasta de trabalho" dentro do container. Tudo dali pra frente acontece em /app.
+
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir .
+
+Instala as dependências Python. Repare numa coisa importante: ele copia só o pyproject.toml primeiro (antes do código). Isso é uma otimização: se você só mexer no código mas não nas dependências, o Docker reaproveita esse passo e o build fica muito mais rápido.
+
+No Dockerfile.production ele usa requirements.txt em vez de pyproject.toml. Se for usar essa versão, lembra de gerar o arquivo: pip freeze > requirements.txt.
+
+COPY . .
+
+Copia o resto do projeto (todo o código) pra dentro de /app. O .dockerignore decide o que NÃO entra (cache, logs, attached_assets, etc.).
+
+RUN mkdir -p \
+    /app/static/fotos_funcionarios \
+    /app/static/fotos \
+    /app/static/images \
+    /app/uploads \
+    /app/logs
+
+Cria as pastas que o app usa em runtime. Como o app salva uploads e fotos, essas pastas precisam existir desde o começo.
+
+COPY docker-entrypoint-easypanel-auto.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+Coloca o script de inicialização e dá permissão de execução. Esse script (o docker-entrypoint-*.sh) é o que roda antes do servidor subir — ele espera o banco ficar pronto, cria as tabelas, etc.
+
+EXPOSE 5000
+
+Declara que o container escuta na porta 5000. É só uma documentação para o Docker — quem realmente abre a porta é o painel onde você vai hospedar.
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--keep-alive", "2", "--worker-connections", "1000", "main:app"]
+
+Comando final que liga tudo. Funciona assim:
+
+O ENTRYPOINT é executado primeiro (espera o banco, cria tabelas).
+Depois ele chama o CMD, que sobe o gunicorn (servidor de produção) escutando em 0.0.0.0:5000, com 2 workers, timeout de 120s, rodando o main:app (sua app Flask).
+O .dockerignore do seu projeto
+É como um .gitignore, mas pro Docker. Ele evita que arquivos inúteis (cache, logs, backups, attached_assets/, scripts de teste) entrem no container — deixando a imagem menor e o build mais rápido.

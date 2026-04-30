@@ -1,0 +1,65 @@
+Boa! Como você vai usar EasyPanel, tenho uma ótima notícia: o seu projeto já está praticamente pronto pra isso. O Dockerfile principal foi feito sob medida pro EasyPanel (tem até "EasyPanel" no nome do entrypoint). Deixa eu te explicar exatamente o que fazer.
+
+Passo a passo pra subir no EasyPanel
+1. No EasyPanel, criar 2 serviços
+Você vai precisar de dois serviços no mesmo projeto do EasyPanel:
+
+Serviço A — Banco de dados (PostgreSQL)
+
+Tipo: Postgres (template pronto do EasyPanel)
+Nome do serviço: sige (importante! veja por quê no passo 3)
+Usuário: sige
+Senha: sige
+Database: sige
+Serviço B — Aplicação (App)
+
+Tipo: App
+Source: GitHub (recomendado) ou upload do código
+2. Configurar o build do App
+Na aba Build do serviço App, escolha:
+
+Build method: Dockerfile
+Dockerfile path: ./Dockerfile
+O EasyPanel vai pegar seu Dockerfile e o .dockerignore automaticamente.
+
+3. Configurar variáveis de ambiente (Environment)
+Esse é o passo mais importante. Na aba Environment do serviço App, adicione:
+
+DATABASE_URL=postgresql://sige:sige@<projeto>_sige:5432/sige?sslmode=disable
+SESSION_SECRET=<uma_string_longa_aleatoria>
+FLASK_ENV=production
+
+Sobre o DATABASE_URL: o nome do host (viajey_sige que está no entrypoint) segue o padrão <nome_do_projeto>_<nome_do_serviço> do EasyPanel. Se seu projeto se chama viajey e o serviço Postgres se chama sige, vai dar viajey_sige certinho. Se seu projeto tiver outro nome, ajusta o host no DATABASE_URL.
+
+Se você não definir DATABASE_URL, o entrypoint usa um valor padrão (viajey_sige). Funciona se o projeto se chamar viajey, mas é mais seguro definir explicitamente.
+
+SESSION_SECRET: gera uma string aleatória longa (ex.: 50 caracteres). É o que mantém o login dos usuários seguro.
+
+4. Configurar a porta (Domains)
+Na aba Domains do serviço App:
+
+Port: 5000
+Configure o domínio (pode usar o subdomínio gratuito do EasyPanel pra testar)
+5. Volumes (recomendado mas opcional)
+Como o app salva fotos e uploads, é bom criar volumes persistentes pra esses arquivos não sumirem quando o container reiniciar:
+
+Mount path no container	Sugestão de volume
+/app/static/fotos_funcionarios	fotos_funcionarios
+/app/static/fotos	fotos
+/app/uploads	uploads
+/app/logs	logs
+6. Deploy
+Clica em Deploy. O EasyPanel vai:
+
+Fazer o build da imagem usando seu Dockerfile.
+Subir o container.
+Rodar o docker-entrypoint-easypanel-auto.sh, que espera o banco, cria as tabelas e sobe o gunicorn.
+Em 2-5 minutos seu app estará no ar.
+
+Coisas que talvez você queira ajustar antes
+Olhando seu Dockerfile e entrypoint, tem alguns pontos que podem te dar dor de cabeça em um deploy novo:
+
+DATABASE_URL chumbada com host viajey_sige — se seu projeto no EasyPanel não se chamar viajey, o fallback do entrypoint não funciona. Você precisa definir DATABASE_URL manualmente no Environment do EasyPanel.
+pyproject.toml sem requirements.txt atualizado — o Dockerfile principal usa pip install . direto do pyproject.toml, então tudo bem. Mas se você quiser usar o Dockerfile.production (mais enxuto), precisa gerar o requirements.txt.
+Volumes para uploads/fotos — sem volumes, toda foto enviada pelos usuários se perde quando o container reinicia.
+Senha sige/sige é fraca — pra produção real, use senhas fortes no Postgres.
