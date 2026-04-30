@@ -349,7 +349,7 @@ export const UpsertRegistroResponse = zod.object({
  */
 export const BaterPontoBody = zod.object({
   funcionario_id: zod.number(),
-  tipo: zod.enum(["entrada", "saida"]),
+  tipo: zod.enum(["entrada", "saida_almoco", "volta_almoco", "saida"]),
 });
 
 export const BaterPontoResponse = zod.object({

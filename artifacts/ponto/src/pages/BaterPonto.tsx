@@ -1,19 +1,70 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useGetFuncionarios,
   useBaterPonto,
+  useGetRegistrosFuncionario,
+  getGetRegistrosFuncionarioQueryKey,
 } from "@workspace/api-client-react";
-import type { Funcionario, BaterPontoResponse } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import type {
+  Funcionario,
+  BaterPontoResponse,
+  FolhaMensal,
+  RegistroPonto,
+} from "@workspace/api-client-react";
+
+type TipoBater = "entrada" | "saida_almoco" | "volta_almoco" | "saida";
+
+const TIPO_LABEL: Record<TipoBater, string> = {
+  entrada: "Entrada",
+  saida_almoco: "Saída Intervalo",
+  volta_almoco: "Volta Intervalo",
+  saida: "Saída",
+};
+
+function getCurrentMes(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getTodayIso(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
 
 export default function BaterPonto() {
   const [time, setTime] = useState("");
   const [date, setDate] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [confirmation, setConfirmation] = useState<BaterPontoResponse | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const { data } = useGetFuncionarios({ ativo: true });
   const funcionarios = (data as Funcionario[] | undefined) ?? [];
   const bater = useBaterPonto();
+  const qc = useQueryClient();
+
+  const mes = getCurrentMes();
+  const todayIso = getTodayIso();
+
+  const { data: folhaData, isFetching: folhaFetching } = useGetRegistrosFuncionario(
+    selectedId ?? 0,
+    { mes },
+    {
+      query: {
+        enabled: !!selectedId,
+        queryKey: getGetRegistrosFuncionarioQueryKey(selectedId ?? 0, { mes }),
+      },
+    },
+  );
+
+  const folha = folhaData as FolhaMensal | undefined;
+
+  const todayRegistro: Partial<RegistroPonto> | null = useMemo(() => {
+    if (!folha) return null;
+    const reg = folha.registros.find((r) => r.data === todayIso);
+    return reg ?? null;
+  }, [folha, todayIso]);
 
   useEffect(() => {
     function tick() {
@@ -33,17 +84,92 @@ export default function BaterPonto() {
     return () => clearInterval(id);
   }, []);
 
-  async function handleBater(tipo: "entrada" | "saida") {
+  async function handleBater(tipo: TipoBater) {
     if (!selectedId) return;
+    setErrorMsg(null);
     try {
       const result = await bater.mutateAsync({
         data: { funcionario_id: selectedId, tipo },
       });
       setConfirmation(result as BaterPontoResponse);
-    } catch {}
+      await qc.invalidateQueries({
+        queryKey: getGetRegistrosFuncionarioQueryKey(selectedId, { mes }),
+      });
+    } catch (e: unknown) {
+      let msg = "Erro ao registrar ponto. Tente novamente.";
+      if (e && typeof e === "object" && "message" in e) {
+        const raw = (e as { message?: string }).message;
+        if (typeof raw === "string" && raw.length > 0) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === "object" && "error" in parsed && typeof parsed.error === "string") {
+              msg = parsed.error;
+            }
+          } catch {
+            msg = raw;
+          }
+        }
+      }
+      setErrorMsg(msg);
+    }
   }
 
   const selectedFunc = funcionarios.find((f) => f.id === selectedId);
+
+  const has = {
+    entrada: !!todayRegistro?.entrada,
+    saida_almoco: !!todayRegistro?.saida_almoco,
+    volta_almoco: !!todayRegistro?.volta_almoco,
+    saida: !!todayRegistro?.saida,
+  };
+
+  function isEnabled(tipo: TipoBater): boolean {
+    if (!selectedId || bater.isPending) return false;
+    if (folhaFetching) return false;
+    if (has.saida) return false;
+    if (tipo === "entrada") return !has.entrada;
+    if (tipo === "saida_almoco") return has.entrada && !has.saida_almoco;
+    if (tipo === "volta_almoco") return has.entrada && has.saida_almoco && !has.volta_almoco;
+    if (tipo === "saida") return has.entrada && has.saida_almoco && has.volta_almoco;
+    return false;
+  }
+
+  function batidoHorario(tipo: TipoBater): string | null {
+    if (!todayRegistro) return null;
+    return (todayRegistro[tipo] as string | null | undefined) ?? null;
+  }
+
+  const buttons: Array<{
+    tipo: TipoBater;
+    bgEnabled: string;
+    bgHover: string;
+    bgDisabled: string;
+  }> = [
+    {
+      tipo: "entrada",
+      bgEnabled: "bg-[#1B7A3E]",
+      bgHover: "hover:bg-[#15612F]",
+      bgDisabled: "bg-[#1B7A3E]/40",
+    },
+    {
+      tipo: "saida_almoco",
+      bgEnabled: "bg-[#E08B1A]",
+      bgHover: "hover:bg-[#C77514]",
+      bgDisabled: "bg-[#E08B1A]/40",
+    },
+    {
+      tipo: "volta_almoco",
+      bgEnabled: "bg-[#4A90D9]",
+      bgHover: "hover:bg-[#3A80C9]",
+      bgDisabled: "bg-[#4A90D9]/40",
+    },
+    {
+      tipo: "saida",
+      bgEnabled: "bg-[#B03030]",
+      bgHover: "hover:bg-[#8C2424]",
+      bgDisabled: "bg-[#B03030]/40",
+    },
+  ];
 
   return (
     <div className="h-full flex items-center justify-center bg-[#F4F6F8]">
@@ -59,15 +185,11 @@ export default function BaterPonto() {
           <div className="px-8 py-8">
             {confirmation ? (
               <div className="text-center">
-                <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${
-                  confirmation.tipo === "entrada" ? "bg-green-100" : "bg-red-100"
-                }`}>
-                  <span className="text-4xl">
-                    {confirmation.tipo === "entrada" ? "✓" : "◻"}
-                  </span>
+                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 bg-[#1B2A4A]/10">
+                  <span className="text-4xl">✓</span>
                 </div>
                 <h2 className="text-xl font-bold text-[#1B2A4A] mb-1">
-                  {confirmation.tipo === "entrada" ? "Entrada Registrada" : "Saída Registrada"}
+                  {TIPO_LABEL[confirmation.tipo as TipoBater] ?? confirmation.tipo} registrada
                 </h2>
                 <p className="text-gray-600 mb-1 font-medium">
                   {funcionarios.find((f) => f.id === confirmation.funcionario_id)?.nome}
@@ -96,9 +218,10 @@ export default function BaterPonto() {
                   <select
                     className="w-full border-2 rounded-lg px-4 py-3 text-base font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#4A90D9] focus:border-[#4A90D9] bg-white"
                     value={selectedId ?? ""}
-                    onChange={(e) =>
-                      setSelectedId(e.target.value ? parseInt(e.target.value) : null)
-                    }
+                    onChange={(e) => {
+                      setSelectedId(e.target.value ? parseInt(e.target.value) : null);
+                      setErrorMsg(null);
+                    }}
                   >
                     <option value="">— Selecione —</option>
                     {funcionarios.map((f) => (
@@ -118,25 +241,40 @@ export default function BaterPonto() {
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={() => handleBater("entrada")}
-                    disabled={!selectedId || bater.isPending}
-                    className="py-4 bg-[#1B7A3E] text-white rounded-xl font-bold text-lg hover:bg-[#15612F] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-                  >
-                    Entrada
-                  </button>
-                  <button
-                    onClick={() => handleBater("saida")}
-                    disabled={!selectedId || bater.isPending}
-                    className="py-4 bg-[#B03030] text-white rounded-xl font-bold text-lg hover:bg-[#8C2424] disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-sm"
-                  >
-                    Saída
-                  </button>
+                  {buttons.map((b) => {
+                    const enabled = isEnabled(b.tipo);
+                    const horario = batidoHorario(b.tipo);
+                    return (
+                      <div key={b.tipo} className="flex flex-col">
+                        <button
+                          onClick={() => handleBater(b.tipo)}
+                          disabled={!enabled}
+                          className={`py-4 text-white rounded-xl font-bold text-base transition-colors shadow-sm ${
+                            enabled ? `${b.bgEnabled} ${b.bgHover}` : `${b.bgDisabled} cursor-not-allowed`
+                          }`}
+                        >
+                          {TIPO_LABEL[b.tipo]}
+                        </button>
+                        {horario && (
+                          <div className="mt-1.5 text-center text-xs text-gray-600">
+                            <span className="font-mono font-semibold text-[#1B2A4A]">{horario}</span>
+                            <span className="text-gray-400"> registrado</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {bater.isError && (
+                {selectedId && has.saida && (
+                  <p className="mt-4 text-sm text-center text-gray-500">
+                    Todos os pontos do dia já foram registrados.
+                  </p>
+                )}
+
+                {errorMsg && (
                   <p className="mt-3 text-sm text-center text-red-600">
-                    Erro ao registrar ponto. Tente novamente.
+                    {errorMsg}
                   </p>
                 )}
               </>

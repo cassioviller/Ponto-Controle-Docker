@@ -377,71 +377,162 @@ router.post("/ponto/bater", async (req, res) => {
         ),
       );
 
+    const prevReg = existing[0] ?? null;
+
+    const has = {
+      entrada: !!prevReg?.entrada,
+      saida_almoco: !!prevReg?.saida_almoco,
+      volta_almoco: !!prevReg?.volta_almoco,
+      saida: !!prevReg?.saida,
+    };
+
+    if (has.saida) {
+      res.status(400).json({ error: "Saída do dia já foi registrada" });
+      return;
+    }
+
+    if (body.tipo === "entrada") {
+      if (has.entrada) {
+        res.status(400).json({ error: "Entrada já registrada hoje" });
+        return;
+      }
+    } else if (body.tipo === "saida_almoco") {
+      if (!has.entrada) {
+        res.status(400).json({ error: "Registre a Entrada antes da Saída do Intervalo" });
+        return;
+      }
+      if (has.saida_almoco) {
+        res.status(400).json({ error: "Saída do Intervalo já registrada hoje" });
+        return;
+      }
+    } else if (body.tipo === "volta_almoco") {
+      if (!has.entrada) {
+        res.status(400).json({ error: "Registre a Entrada antes da Volta do Intervalo" });
+        return;
+      }
+      if (!has.saida_almoco) {
+        res.status(400).json({ error: "Registre a Saída do Intervalo antes da Volta" });
+        return;
+      }
+      if (has.volta_almoco) {
+        res.status(400).json({ error: "Volta do Intervalo já registrada hoje" });
+        return;
+      }
+    } else if (body.tipo === "saida") {
+      if (!has.entrada) {
+        res.status(400).json({ error: "Registre a Entrada antes da Saída" });
+        return;
+      }
+      if (!has.saida_almoco) {
+        res.status(400).json({ error: "Registre a Saída do Intervalo antes da Saída" });
+        return;
+      }
+      if (!has.volta_almoco) {
+        res.status(400).json({ error: "Registre a Volta do Intervalo antes da Saída" });
+        return;
+      }
+    }
+
     let row;
-    if (existing.length > 0 && existing[0]) {
-      const prevReg = existing[0];
 
-      let updateFields;
-      if (body.tipo === "entrada") {
-        updateFields = { entrada: horario, atualizado_em: new Date() };
+    if (!prevReg) {
+      const insertData = {
+        empresa_id: funcionario.empresa_id ?? empresaId ?? null,
+        funcionario_id: body.funcionario_id,
+        data,
+        entrada: body.tipo === "entrada" ? horario : null,
+        saida: body.tipo === "saida" ? horario : null,
+        saida_almoco: body.tipo === "saida_almoco" ? horario : null,
+        volta_almoco: body.tipo === "volta_almoco" ? horario : null,
+      };
+
+      [row] = await db
+        .insert(registrosPontoTable)
+        .values(insertData)
+        .returning();
+    } else if (body.tipo === "entrada") {
+      [row] = await db
+        .update(registrosPontoTable)
+        .set({ entrada: horario, atualizado_em: new Date() })
+        .where(eq(registrosPontoTable.id, prevReg.id))
+        .returning();
+    } else if (body.tipo === "saida_almoco") {
+      [row] = await db
+        .update(registrosPontoTable)
+        .set({ saida_almoco: horario, atualizado_em: new Date() })
+        .where(eq(registrosPontoTable.id, prevReg.id))
+        .returning();
+    } else if (body.tipo === "volta_almoco") {
+      const intervaloDerivado = deriveIntervalo(prevReg.saida_almoco, horario);
+      [row] = await db
+        .update(registrosPontoTable)
+        .set({
+          volta_almoco: horario,
+          intervalo: intervaloDerivado,
+          atualizado_em: new Date(),
+        })
+        .where(eq(registrosPontoTable.id, prevReg.id))
+        .returning();
+    } else {
+      const jornadaDia = await getJornadaDia(body.funcionario_id, data);
+      const feriadoEmpresa = await isFeriadoEmpresa(empresaId, data);
+      const intervaloFinal = prevReg.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
+
+      const prevJustificativa = (prevReg.justificativa ?? "nenhuma") as
+        | "nenhuma"
+        | "justificada"
+        | "injustificada";
+
+      const jornadaInfo = jornadaDia ? {
+        entrada_padrao: jornadaDia.entrada_padrao,
+        saida_padrao: jornadaDia.saida_padrao,
+        intervalo_padrao: jornadaDia.intervalo_padrao,
+        is_folga: jornadaDia.is_folga || feriadoEmpresa,
+      } : (feriadoEmpresa ? {
+        entrada_padrao: null,
+        saida_padrao: null,
+        intervalo_padrao: null,
+        is_folga: true as boolean,
+      } : null);
+
+      let total_horas: string | null;
+      let he_60: string | null;
+      let he_100: string | null;
+      let atrasos: string | null;
+      let horas_justificadas: string | null = null;
+
+      if (prevJustificativa === "justificada") {
+        const calc = calcFromJornada(
+          prevReg.entrada,
+          horario,
+          intervaloFinal,
+          jornadaInfo,
+          data,
+          "justificada",
+          funcionario.jornada_diaria,
+        );
+        total_horas = calc.total_horas;
+        he_60 = calc.he_60;
+        he_100 = calc.he_100;
+        atrasos = calc.atrasos;
+        horas_justificadas = calc.horas_justificadas;
+      } else if (jornadaInfo) {
+        const calc = calcFromJornada(prevReg.entrada, horario, intervaloFinal, jornadaInfo, data, prevJustificativa, funcionario.jornada_diaria);
+        total_horas = calc.total_horas;
+        he_60 = calc.he_60;
+        he_100 = calc.he_100;
+        atrasos = calc.atrasos;
       } else {
-        const jornadaDia = await getJornadaDia(body.funcionario_id, data);
-        const feriadoEmpresa = await isFeriadoEmpresa(empresaId, data);
-        const intervaloFinal = prevReg.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
+        total_horas = calcTotalHoras(prevReg.entrada, horario, intervaloFinal).total_horas;
+        const heAuto = calcHEAndAtrasos(prevReg.entrada, horario, intervaloFinal, funcionario.jornada_diaria, data);
+        he_60 = heAuto.he_60;
+        he_100 = heAuto.he_100;
+        atrasos = heAuto.atrasos;
+      }
 
-        const prevJustificativa = (prevReg.justificativa ?? "nenhuma") as
-          | "nenhuma"
-          | "justificada"
-          | "injustificada";
-
-        const jornadaInfo = jornadaDia ? {
-          entrada_padrao: jornadaDia.entrada_padrao,
-          saida_padrao: jornadaDia.saida_padrao,
-          intervalo_padrao: jornadaDia.intervalo_padrao,
-          is_folga: jornadaDia.is_folga || feriadoEmpresa,
-        } : (feriadoEmpresa ? {
-          entrada_padrao: null,
-          saida_padrao: null,
-          intervalo_padrao: null,
-          is_folga: true as boolean,
-        } : null);
-
-        let total_horas: string | null;
-        let he_60: string | null;
-        let he_100: string | null;
-        let atrasos: string | null;
-        let horas_justificadas: string | null = null;
-
-        if (prevJustificativa === "justificada") {
-          const calc = calcFromJornada(
-            prevReg.entrada,
-            horario,
-            intervaloFinal,
-            jornadaInfo,
-            data,
-            "justificada",
-            funcionario.jornada_diaria,
-          );
-          total_horas = calc.total_horas;
-          he_60 = calc.he_60;
-          he_100 = calc.he_100;
-          atrasos = calc.atrasos;
-          horas_justificadas = calc.horas_justificadas;
-        } else if (jornadaInfo) {
-          const calc = calcFromJornada(prevReg.entrada, horario, intervaloFinal, jornadaInfo, data, prevJustificativa, funcionario.jornada_diaria);
-          total_horas = calc.total_horas;
-          he_60 = calc.he_60;
-          he_100 = calc.he_100;
-          atrasos = calc.atrasos;
-        } else {
-          total_horas = calcTotalHoras(prevReg.entrada, horario, intervaloFinal).total_horas;
-          const heAuto = calcHEAndAtrasos(prevReg.entrada, horario, intervaloFinal, funcionario.jornada_diaria, data);
-          he_60 = heAuto.he_60;
-          he_100 = heAuto.he_100;
-          atrasos = heAuto.atrasos;
-        }
-
-        updateFields = {
+      [row] = await db
+        .update(registrosPontoTable)
+        .set({
           saida: horario,
           atualizado_em: new Date(),
           total_horas,
@@ -449,23 +540,8 @@ router.post("/ponto/bater", async (req, res) => {
           he_100,
           atrasos,
           horas_justificadas,
-        };
-      }
-
-      [row] = await db
-        .update(registrosPontoTable)
-        .set(updateFields)
+        })
         .where(eq(registrosPontoTable.id, prevReg.id))
-        .returning();
-    } else {
-      const insertData =
-        body.tipo === "entrada"
-          ? { empresa_id: funcionario.empresa_id ?? empresaId ?? null, funcionario_id: body.funcionario_id, data, entrada: horario }
-          : { empresa_id: funcionario.empresa_id ?? empresaId ?? null, funcionario_id: body.funcionario_id, data, saida: horario };
-
-      [row] = await db
-        .insert(registrosPontoTable)
-        .values(insertData)
         .returning();
     }
 

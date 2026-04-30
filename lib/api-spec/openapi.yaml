@@ -758,7 +758,7 @@ components:
           type: integer
         tipo:
           type: string
-          enum: [entrada, saida]
+          enum: [entrada, saida_almoco, volta_almoco, saida]
       required:
         - funcionario_id
         - tipo

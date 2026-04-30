@@ -181,6 +181,8 @@ export type BaterPontoBodyTipo =
 
 export const BaterPontoBodyTipo = {
   entrada: "entrada",
+  saida_almoco: "saida_almoco",
+  volta_almoco: "volta_almoco",
   saida: "saida",
 } as const;
 
