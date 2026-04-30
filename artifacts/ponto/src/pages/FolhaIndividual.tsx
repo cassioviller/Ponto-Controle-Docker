@@ -61,6 +61,22 @@ function calcEaster(year: number): Date {
   return new Date(year,month-1,day);
 }
 
+function deriveIntervalo(saidaAlmoco: string | null | undefined, voltaAlmoco: string | null | undefined): string | null {
+  if (!saidaAlmoco || !voltaAlmoco) return null;
+  const ini = timeToMinutes(saidaAlmoco);
+  const fim = timeToMinutes(voltaAlmoco);
+  const diff = fim - ini;
+  if (diff <= 0) return null;
+  return minutesToTime(diff);
+}
+
+function isoToBrDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 function autoCalculate(
   entrada: string | null | undefined,
   saida: string | null | undefined,
@@ -145,11 +161,20 @@ export default function FolhaIndividual() {
       if (!prev) return null;
       const updated = { ...prev, [key]: value || null };
 
-      if (key === "entrada" || key === "saida" || key === "intervalo") {
+      if (
+        key === "entrada" ||
+        key === "saida" ||
+        key === "saida_almoco" ||
+        key === "volta_almoco"
+      ) {
+        const nextSaidaAlmoco = key === "saida_almoco" ? (value || null) : (prev.saida_almoco ?? null);
+        const nextVoltaAlmoco = key === "volta_almoco" ? (value || null) : (prev.volta_almoco ?? null);
+        const intervaloDerivado = deriveIntervalo(nextSaidaAlmoco, nextVoltaAlmoco);
+
         const calc = autoCalculate(
           key === "entrada" ? value : prev.entrada,
           key === "saida" ? value : prev.saida,
-          key === "intervalo" ? value : prev.intervalo,
+          intervaloDerivado,
           prev.jornada_padrao ?? null,
           prev.data,
         );
@@ -160,7 +185,7 @@ export default function FolhaIndividual() {
           he_100: calc.he_100,
           atrasos: calc.atrasos,
           faltas: calc.faltas,
-          intervalo: calc.intervalo_used,
+          intervalo: intervaloDerivado,
         };
       }
 
@@ -178,6 +203,8 @@ export default function FolhaIndividual() {
           data: editingRow.data,
           entrada: editingRow.entrada ?? null,
           saida: editingRow.saida ?? null,
+          saida_almoco: editingRow.saida_almoco ?? null,
+          volta_almoco: editingRow.volta_almoco ?? null,
           intervalo: editingRow.intervalo ?? null,
           he_60: editingRow.he_60 ?? null,
           he_100: editingRow.he_100 ?? null,
@@ -342,7 +369,7 @@ export default function FolhaIndividual() {
                     className={`border-b transition-colors ${rowBg}`}
                   >
                     <td className="px-3 py-2 font-mono text-xs text-gray-600">
-                      {reg.data.slice(5)}
+                      {isoToBrDate(reg.data)}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-500">
                       {reg.dia_semana?.slice(0, 3)}
@@ -393,7 +420,7 @@ export default function FolhaIndividual() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
             <h2 className="text-base font-bold text-[#1B2A4A] mb-1">
-              Editar Registro — {editingRow.data} ({editingRow.dia_semana})
+              Editar Registro — {isoToBrDate(editingRow.data)} ({editingRow.dia_semana})
             </h2>
             {editingRow.jornada_padrao && !editingRow.jornada_padrao.is_folga && (
               <p className="text-xs text-gray-500 mb-3">
@@ -410,7 +437,9 @@ export default function FolhaIndividual() {
                 [
                   { key: "entrada", label: "Entrada" },
                   { key: "saida", label: "Saída" },
-                  { key: "intervalo", label: "Intervalo" },
+                  { key: "saida_almoco", label: "Saída Almoço" },
+                  { key: "volta_almoco", label: "Volta Almoço" },
+                  { key: "intervalo", label: "Intervalo", readOnly: true },
                   { key: "total_horas", label: "Total Horas", readOnly: true },
                   { key: "he_60", label: "HE 60%" },
                   { key: "he_100", label: "HE 100%" },

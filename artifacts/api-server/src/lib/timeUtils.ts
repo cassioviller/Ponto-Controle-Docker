@@ -266,3 +266,32 @@ export function isDomFeriado(dateStr: string): boolean {
   const year = d.getFullYear();
   return getFeriadosNacionais(year).has(dateStr);
 }
+
+export function deriveIntervalo(
+  saidaAlmoco: string | null | undefined,
+  voltaAlmoco: string | null | undefined,
+): string | null {
+  if (!saidaAlmoco || !voltaAlmoco) return null;
+  const ini = timeToMinutes(saidaAlmoco);
+  const fim = timeToMinutes(voltaAlmoco);
+  const diff = fim - ini;
+  if (diff <= 0) return null;
+  return minutesToTime(diff);
+}
+
+export function isoToBrDate(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+export function brToIsoDate(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const s = String(input).trim();
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  return null;
+}

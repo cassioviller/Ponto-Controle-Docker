@@ -81,6 +81,8 @@ export interface RegistroPonto {
   data: string;
   entrada?: string | null;
   saida?: string | null;
+  saida_almoco?: string | null;
+  volta_almoco?: string | null;
   intervalo?: string | null;
   total_horas?: string | null;
   he_60?: string | null;
@@ -95,6 +97,8 @@ export interface UpsertRegistroBody {
   data: string;
   entrada?: string | null;
   saida?: string | null;
+  saida_almoco?: string | null;
+  volta_almoco?: string | null;
   intervalo?: string | null;
   he_60?: string | null;
   he_100?: string | null;

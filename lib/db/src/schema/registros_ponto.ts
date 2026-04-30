@@ -14,6 +14,8 @@ export const registrosPontoTable = pgTable("registros_ponto", {
   data: date("data").notNull(),
   entrada: text("entrada"),
   saida: text("saida"),
+  saida_almoco: text("saida_almoco"),
+  volta_almoco: text("volta_almoco"),
   intervalo: text("intervalo"),
   total_horas: text("total_horas"),
   he_60: text("he_60"),

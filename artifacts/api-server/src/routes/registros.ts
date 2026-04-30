@@ -25,6 +25,7 @@ import {
   getDiaSemanaNum,
   isDomFeriado,
   timeToMinutes,
+  deriveIntervalo,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
@@ -113,6 +114,8 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
         dia_semana: getDiaSemana(data),
         entrada: reg?.entrada ?? null,
         saida: reg?.saida ?? null,
+        saida_almoco: reg?.saida_almoco ?? null,
+        volta_almoco: reg?.volta_almoco ?? null,
         intervalo: reg?.intervalo ?? null,
         total_horas: reg?.total_horas ?? null,
         he_60: reg?.he_60 ?? null,
@@ -199,7 +202,29 @@ router.post("/registros", async (req, res) => {
     const jornadaDia = await getJornadaDia(body.funcionario_id, body.data);
     const feriadoEmpresa = await isFeriadoEmpresa(empresaId, body.data);
 
-    const intervaloFinal = body.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
+    const lunchPair = (body.saida_almoco ? 1 : 0) + (body.volta_almoco ? 1 : 0);
+    if (lunchPair === 1) {
+      res.status(400).json({ error: "Informe Saída do almoço E Volta do almoço (ou nenhum dos dois)" });
+      return;
+    }
+    if (body.saida_almoco && body.volta_almoco) {
+      if (timeToMinutes(body.volta_almoco) <= timeToMinutes(body.saida_almoco)) {
+        res.status(400).json({ error: "Volta do almoço deve ser maior que Saída do almoço" });
+        return;
+      }
+      if (body.entrada && body.saida) {
+        if (
+          timeToMinutes(body.saida_almoco) < timeToMinutes(body.entrada) ||
+          timeToMinutes(body.volta_almoco) > timeToMinutes(body.saida)
+        ) {
+          res.status(400).json({ error: "Horários do almoço devem ficar entre Entrada e Saída" });
+          return;
+        }
+      }
+    }
+    const intervaloDerivado = deriveIntervalo(body.saida_almoco, body.volta_almoco);
+    const intervaloFinal =
+      intervaloDerivado ?? body.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
 
     const { total_horas } = calcTotalHoras(body.entrada, body.saida, intervaloFinal);
 
@@ -256,6 +281,8 @@ router.post("/registros", async (req, res) => {
       data: body.data,
       entrada: body.entrada ?? null,
       saida: body.saida ?? null,
+      saida_almoco: body.saida_almoco ?? null,
+      volta_almoco: body.volta_almoco ?? null,
       intervalo: intervaloFinal ?? null,
       total_horas: total_horas ?? null,
       he_60: body.he_60 !== undefined && body.he_60 !== null ? body.he_60 : he_60,

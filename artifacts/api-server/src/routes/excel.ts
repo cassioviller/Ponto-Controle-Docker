@@ -17,6 +17,10 @@ import {
   getDiaSemana,
   calcTotalHoras,
   calcHEAndAtrasos,
+  deriveIntervalo,
+  isoToBrDate,
+  brToIsoDate,
+  timeToMinutes,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
@@ -91,10 +95,12 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
     const ws = wb.addWorksheet("Registros de Ponto");
 
     ws.columns = [
-      { header: "Data (YYYY-MM-DD)", key: "data", width: 18 },
+      { header: "Data (DD/MM/AAAA)", key: "data", width: 18 },
       { header: "Dia da Semana", key: "dia_semana", width: 16 },
       { header: "Entrada (HH:MM)", key: "entrada", width: 16 },
       { header: "Saída (HH:MM)", key: "saida", width: 16 },
+      { header: "Saída Almoço (HH:MM)", key: "saida_almoco", width: 20 },
+      { header: "Volta Almoço (HH:MM)", key: "volta_almoco", width: 20 },
       { header: "Intervalo (HH:MM)", key: "intervalo", width: 18 },
       { header: "HE 60% (HH:MM)", key: "he_60", width: 16 },
       { header: "HE 100% (HH:MM)", key: "he_100", width: 16 },
@@ -116,11 +122,13 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
 
     days.forEach((data) => {
       ws.addRow({
-        data,
+        data: isoToBrDate(data),
         dia_semana: getDiaSemana(data),
         entrada: "",
         saida: "",
-        intervalo: "01:00",
+        saida_almoco: "",
+        volta_almoco: "",
+        intervalo: "",
         he_60: "",
         he_100: "",
         atrasos: "",
@@ -130,22 +138,23 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
     });
 
     const instrWs = wb.addWorksheet("Instruções");
-    instrWs.getColumn("A").width = 80;
+    instrWs.getColumn("A").width = 90;
     const instructions = [
       "INSTRUÇÕES DE PREENCHIMENTO",
       "",
-      "1. Data: Use o formato YYYY-MM-DD (ex: 2025-04-01)",
-      "2. Horários (Entrada, Saída, Intervalo, HE 60%, HE 100%, Atrasos): Use HH:MM (ex: 08:00, 17:30, 01:00)",
-      "3. Faltas: Digite 0 (sem falta) ou 1 (dia de falta)",
-      "4. Observações: Campo livre para texto",
-      "5. Deixe em branco os campos que não se aplicam ao dia",
-      "6. Sábados e Domingos podem ser deixados em branco",
+      "1. Data: Use o formato brasileiro DD/MM/AAAA (ex: 01/04/2026). O formato antigo YYYY-MM-DD também é aceito.",
+      "2. Horários (Entrada, Saída, Saída Almoço, Volta Almoço, HE 60%, HE 100%, Atrasos): Use HH:MM (ex: 08:00, 12:00, 13:00, 17:30).",
+      "3. Saída Almoço / Volta Almoço: Informe os horários reais do almoço. O Intervalo (duração) é calculado automaticamente.",
+      "4. Intervalo (HH:MM): Opcional — calculado automaticamente quando Saída Almoço e Volta Almoço estão preenchidos. Pode ser usado como fallback (planilhas antigas).",
+      "5. Faltas: Digite 0 (sem falta) ou 1 (dia de falta).",
+      "6. Observações: Campo livre para texto.",
+      "7. Deixe em branco os campos que não se aplicam ao dia. Sábados e Domingos podem ficar em branco.",
       "",
       "COMO IMPORTAR:",
-      "1. Preencha a aba 'Registros de Ponto' com os dados do mês",
-      "2. Salve o arquivo em formato .xlsx",
-      "3. No sistema, vá para a Folha do Funcionário → Importar Excel",
-      "4. Selecione o arquivo e confirme a importação",
+      "1. Preencha a aba 'Registros de Ponto' com os dados do mês.",
+      "2. Salve o arquivo em formato .xlsx.",
+      "3. No sistema, vá para a Folha do Funcionário → Importar Excel.",
+      "4. Selecione o arquivo e confirme a importação.",
     ];
     instructions.forEach((text) => {
       const row = instrWs.addRow([text]);
@@ -201,7 +210,7 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
     wb.creator = "Controle de Ponto";
     const ws = wb.addWorksheet("Folha Individual");
 
-    ws.mergeCells("A1:K1");
+    ws.mergeCells("A1:M1");
     ws.getCell("A1").value = "CONTROLE DE PONTO — FOLHA INDIVIDUAL";
     ws.getCell("A1").style = {
       font: { bold: true, size: 14 },
@@ -218,6 +227,8 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
       { key: "dia_semana", width: 14 },
       { key: "entrada", width: 12 },
       { key: "saida", width: 12 },
+      { key: "saida_almoco", width: 14 },
+      { key: "volta_almoco", width: 14 },
       { key: "intervalo", width: 12 },
       { key: "total_horas", width: 14 },
       { key: "he_60", width: 12 },
@@ -232,6 +243,8 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
       "Dia da Semana",
       "Entrada",
       "Saída",
+      "Saída Almoço",
+      "Volta Almoço",
       "Intervalo",
       "Total Horas",
       "HE 60%",
@@ -250,10 +263,12 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
       const isDomingo = dt.getDay() === 0;
 
       const row = ws.addRow({
-        data,
+        data: isoToBrDate(data),
         dia_semana: getDiaSemana(data),
         entrada: reg?.entrada ?? "",
         saida: reg?.saida ?? "",
+        saida_almoco: reg?.saida_almoco ?? "",
+        volta_almoco: reg?.volta_almoco ?? "",
         intervalo: reg?.intervalo ?? "",
         total_horas: reg?.total_horas ?? "",
         he_60: reg?.he_60 ?? "",
@@ -336,15 +351,26 @@ router.post("/importar", async (req: Request, res: Response) => {
     const erros: string[] = [];
     let importados = 0;
 
+    const headerRow = ws.getRow(1);
+    const headerCol5 = String(headerRow.getCell(5).value ?? "").trim().toLowerCase();
+    const headerCol6 = String(headerRow.getCell(6).value ?? "").trim().toLowerCase();
+    const isNewLayout =
+      headerCol5.includes("almo") || headerCol6.includes("almo");
+
+    const COL = isNewLayout
+      ? { saidaAlmoco: 5, voltaAlmoco: 6, intervalo: 7, he60: 8, he100: 9, atrasos: 10, faltas: 11, obs: 12 }
+      : { saidaAlmoco: null, voltaAlmoco: null, intervalo: 5, he60: 6, he100: 7, atrasos: 8, faltas: 9, obs: 10 };
+
     const rows = ws.getRows(2, ws.rowCount - 1) ?? [];
 
     for (const row of rows) {
       const dataVal = row.getCell(1).value;
       if (!dataVal) continue;
 
-      const dataStr = String(dataVal).trim();
-      if (!dataStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        erros.push(`Linha ${row.number}: data inválida "${dataStr}" — use YYYY-MM-DD`);
+      const dataRaw = String(dataVal).trim();
+      const dataStr = brToIsoDate(dataRaw);
+      if (!dataStr) {
+        erros.push(`Linha ${row.number}: data inválida "${dataRaw}" — use DD/MM/AAAA (ex: 01/04/2026)`);
         continue;
       }
 
@@ -353,51 +379,79 @@ router.post("/importar", async (req: Request, res: Response) => {
         continue;
       }
 
-      const getCellStr = (col: number): string | null => {
+      const getCellStr = (col: number | null): string | null => {
+        if (col === null) return null;
         const v = row.getCell(col).value;
-        if (!v) return null;
+        if (v === null || v === undefined) return null;
         const s = String(v).trim();
         return s || null;
       };
 
       const entrada = getCellStr(3);
       const saida = getCellStr(4);
-      const intervalo = getCellStr(5) ?? "01:00";
-      const he60 = getCellStr(6);
-      const he100 = getCellStr(7);
-      const atrasos = getCellStr(8);
-      const faltasVal = row.getCell(9).value;
+      const saidaAlmoco = getCellStr(COL.saidaAlmoco);
+      const voltaAlmoco = getCellStr(COL.voltaAlmoco);
+      const intervaloRaw = getCellStr(COL.intervalo);
+      const he60 = getCellStr(COL.he60);
+      const he100 = getCellStr(COL.he100);
+      const atrasos = getCellStr(COL.atrasos);
+      const faltasVal = row.getCell(COL.faltas).value;
       const faltas = faltasVal !== null && faltasVal !== undefined ? String(faltasVal) : "0";
-      const observacoes = getCellStr(10);
+      const observacoes = getCellStr(COL.obs);
 
-      const timeFields: Array<[string | null, string]> = [
-        [entrada, "Entrada"],
-        [saida, "Saída"],
-        [intervalo, "Intervalo"],
-        [he60, "HE 60%"],
-        [he100, "HE 100%"],
-        [atrasos, "Atrasos"],
-      ];
       if (!entrada && !saida) {
         continue;
       }
 
       if (entrada && !saida) {
-        erros.push(`Linha ${row.number} (${dataStr}): Entrada informada mas Saída está ausente`);
+        erros.push(`Linha ${row.number} (${dataRaw}): Entrada informada mas Saída está ausente`);
         continue;
       }
       if (!entrada && saida) {
-        erros.push(`Linha ${row.number} (${dataStr}): Saída informada mas Entrada está ausente`);
+        erros.push(`Linha ${row.number} (${dataRaw}): Saída informada mas Entrada está ausente`);
         continue;
       }
+
+      const lunchPair = (saidaAlmoco ? 1 : 0) + (voltaAlmoco ? 1 : 0);
+      if (lunchPair === 1) {
+        erros.push(`Linha ${row.number} (${dataRaw}): informe Saída Almoço E Volta Almoço (ou nenhum dos dois)`);
+        continue;
+      }
+
+      const timeFields: Array<[string | null, string]> = [
+        [entrada, "Entrada"],
+        [saida, "Saída"],
+        [saidaAlmoco, "Saída Almoço"],
+        [voltaAlmoco, "Volta Almoço"],
+        [intervaloRaw, "Intervalo"],
+        [he60, "HE 60%"],
+        [he100, "HE 100%"],
+        [atrasos, "Atrasos"],
+      ];
 
       const timeErrors = timeFields
         .filter(([val]) => val !== null && !isValidHHMM(val))
         .map(([val, label]) => `${label} inválido "${val}" — use HH:MM (minutos 00-59)`);
       if (timeErrors.length > 0) {
-        erros.push(`Linha ${row.number} (${dataStr}): ${timeErrors.join("; ")}`);
+        erros.push(`Linha ${row.number} (${dataRaw}): ${timeErrors.join("; ")}`);
         continue;
       }
+
+      if (saidaAlmoco && voltaAlmoco) {
+        if (timeToMinutes(voltaAlmoco) <= timeToMinutes(saidaAlmoco)) {
+          erros.push(`Linha ${row.number} (${dataRaw}): Volta Almoço (${voltaAlmoco}) deve ser maior que Saída Almoço (${saidaAlmoco})`);
+          continue;
+        }
+        if (entrada && saida) {
+          if (timeToMinutes(saidaAlmoco) < timeToMinutes(entrada) || timeToMinutes(voltaAlmoco) > timeToMinutes(saida)) {
+            erros.push(`Linha ${row.number} (${dataRaw}): horários de almoço fora do intervalo Entrada→Saída`);
+            continue;
+          }
+        }
+      }
+
+      const intervaloDerivado = deriveIntervalo(saidaAlmoco, voltaAlmoco);
+      const intervalo = intervaloDerivado ?? intervaloRaw ?? "00:00";
 
       const { total_horas } = calcTotalHoras(entrada, saida, intervalo);
 
@@ -425,6 +479,8 @@ router.post("/importar", async (req: Request, res: Response) => {
         data: dataStr,
         entrada,
         saida,
+        saida_almoco: saidaAlmoco,
+        volta_almoco: voltaAlmoco,
         intervalo,
         total_horas,
         he_60: he60 ?? autoHE.he_60,

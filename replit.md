@@ -78,7 +78,7 @@ Tables:
 - `empresas` — companies (nome, cnpj, plano)
 - `usuarios` — admin users per empresa (nome, email, senha_hash, role)
 - `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária)
-- `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
+- `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, saida_almoco, volta_almoco, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
 - `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, entrada_padrao, saida_padrao, intervalo_padrao, is_folga)
 - `feriados` — holidays per empresa (data, descricao, tipo)
 
@@ -87,11 +87,19 @@ Seeded with default empresa + admin user; existing employees migrated to empresa
 
 ## Auto-Calculation Logic
 
-When editing a time record in FolhaIndividual, changing Entrada or Saída triggers `autoCalculate()`:
+When editing a time record in FolhaIndividual, changing Entrada/Saída/Saída-Almoço/Volta-Almoço triggers `autoCalculate()`:
+- Intervalo é derivado automaticamente de `volta_almoco - saida_almoco` (campo Intervalo no modal é readonly).
 - If dia de folga (jornada_padrao.is_folga) or domingo/feriado → all worked hours = HE 100%
 - Extra hours beyond jornada: first 2h = HE 60%, rest = HE 100%
 - No entrada/saída → counted as falta (absence)
-- Intervalo auto-filled from jornada_padrao when not provided
+- Em registros antigos (sem `saida_almoco`/`volta_almoco`) o `intervalo` salvo é usado como fallback.
+
+## Datas e formato BR
+
+- Toda data exibida ao usuário é `DD/MM/AAAA` (modal, tabela da Folha, planilha modelo, planilha exportada).
+- Internamente o backend continua armazenando `YYYY-MM-DD` (`date` no Postgres).
+- O importador Excel aceita `DD/MM/AAAA` (formato preferido) e `YYYY-MM-DD` (retrocompat).
+- Helpers: `isoToBrDate`, `brToIsoDate`, `deriveIntervalo` em `artifacts/api-server/src/lib/timeUtils.ts`.
 
 ## API Routes
 

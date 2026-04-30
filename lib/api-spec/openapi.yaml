@@ -455,6 +455,12 @@ components:
         saida:
           type: string
           nullable: true
+        saida_almoco:
+          type: string
+          nullable: true
+        volta_almoco:
+          type: string
+          nullable: true
         intervalo:
           type: string
           nullable: true
@@ -492,6 +498,12 @@ components:
           type: string
           nullable: true
         saida:
+          type: string
+          nullable: true
+        saida_almoco:
+          type: string
+          nullable: true
+        volta_almoco:
           type: string
           nullable: true
         intervalo:

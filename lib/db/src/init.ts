@@ -43,6 +43,8 @@ CREATE TABLE IF NOT EXISTS registros_ponto (
   data DATE NOT NULL,
   entrada TEXT,
   saida TEXT,
+  saida_almoco TEXT,
+  volta_almoco TEXT,
   intervalo TEXT,
   total_horas TEXT,
   he_60 TEXT,
@@ -81,6 +83,10 @@ const SQL_MIGRATIONS = `
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;
 
 ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE;
+
+ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS saida_almoco TEXT;
+
+ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS volta_almoco TEXT;
 
 CREATE UNIQUE INDEX IF NOT EXISTS funcionarios_empresa_codigo_unique ON funcionarios (empresa_id, codigo) WHERE empresa_id IS NOT NULL;
 
