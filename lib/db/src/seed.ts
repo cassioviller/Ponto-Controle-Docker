@@ -1,5 +1,6 @@
-import { db } from "./index";
-import { funcionariosTable, registrosPontoTable } from "./schema";
+import { db, pool } from "./index";
+import { funcionariosTable, registrosPontoTable, empresasTable, usuariosTable } from "./schema";
+import { eq, isNull } from "drizzle-orm";
 
 const FUNCIONARIOS_SEED = [
   { codigo: 1,  nome: "ARIEL RIBEIRO",                   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
@@ -98,7 +99,7 @@ function isDomingo(dateStr: string): boolean {
   return new Date(dateStr + "T00:00:00").getDay() === 0;
 }
 
-async function seedRegistros(funcionarioId: number, jornadaMin: number, records: SeedReg[]): Promise<void> {
+async function seedRegistros(funcionarioId: number, empresaId: number, jornadaMin: number, records: SeedReg[]): Promise<void> {
   for (const r of records) {
     const entradaMin = calcMin(r.entrada);
     const saidaMin = calcMin(r.saida);
@@ -122,6 +123,7 @@ async function seedRegistros(funcionarioId: number, jornadaMin: number, records:
     }
 
     await db.insert(registrosPontoTable).values({
+      empresa_id: empresaId,
       funcionario_id: funcionarioId,
       data: r.data,
       entrada: r.entrada,
@@ -138,44 +140,83 @@ async function seedRegistros(funcionarioId: number, jornadaMin: number, records:
 }
 
 export async function runSeed(): Promise<void> {
+  let empresaId: number;
+
+  const existingEmpresas = await db.select().from(empresasTable);
+  if (existingEmpresas.length === 0) {
+    console.log("[seed] Creating default empresa...");
+    const [empresa] = await db.insert(empresasTable).values({
+      nome: "Empresa Demo",
+      slug: "demo",
+      plano: "basic",
+      ativo: true,
+    }).returning();
+    empresaId = empresa!.id;
+
+    console.log("[seed] Creating default admin user...");
+    await db.insert(usuariosTable).values({
+      empresa_id: empresaId,
+      nome: "Administrador",
+      email: "admin@demo.com",
+      senha_hash: "$2b$10$demo_hash_placeholder",
+      role: "admin",
+      ativo: true,
+    });
+  } else {
+    empresaId = existingEmpresas[0]!.id;
+  }
+
   const existing = await db.select().from(funcionariosTable);
-  if (existing.length > 0) {
-    return;
+  if (existing.length === 0) {
+    console.log("[seed] Seeding funcionários (15 total)...");
+    const inserted = await db.insert(funcionariosTable).values(
+      FUNCIONARIOS_SEED.map((f) => ({
+        empresa_id: empresaId,
+        codigo: f.codigo,
+        nome: f.nome,
+        cargo: f.cargo,
+        vinculo: f.vinculo,
+        situacao: f.situacao,
+        adiantamento: f.adiantamento,
+        transporte: f.transporte,
+        jornada_diaria: f.jornada_diaria,
+        ativo: f.ativo,
+      }))
+    ).returning();
+
+    const ariel = inserted.find((f) => f.codigo === 1);
+    const exemploCLT = inserted.find((f) => f.codigo === 30);
+    const exemploEstagiario = inserted.find((f) => f.codigo === 31);
+
+    if (ariel) {
+      console.log("[seed] Seeding April 2025 registros — ARIEL RIBEIRO...");
+      await seedRegistros(ariel.id, empresaId, 480, REGISTROS_ABRIL_2025_ARIEL);
+    }
+
+    if (exemploCLT) {
+      console.log("[seed] Seeding April 2025 registros — EXEMPLO COLABORADOR...");
+      await seedRegistros(exemploCLT.id, empresaId, 480, REGISTROS_ABRIL_2025_EXEMPLO_CLT);
+    }
+
+    if (exemploEstagiario) {
+      console.log("[seed] Seeding April 2025 registros — EXEMPLO ESTAGIÁRIO...");
+      await seedRegistros(exemploEstagiario.id, empresaId, 360, REGISTROS_ABRIL_2025_EXEMPLO_ESTAGIARIO);
+    }
+
+    console.log("[seed] Seed concluído: 15 funcionários, 3 funcionários com registros de Abril/2025.");
+  } else {
+    const withoutEmpresa = existing.filter((f) => f.empresa_id === null);
+    if (withoutEmpresa.length > 0) {
+      console.log(`[seed] Migrating ${withoutEmpresa.length} existing funcionários to empresa_id=${empresaId}...`);
+      await pool.query(
+        `UPDATE funcionarios SET empresa_id = $1 WHERE empresa_id IS NULL`,
+        [empresaId]
+      );
+      await pool.query(
+        `UPDATE registros_ponto SET empresa_id = $1 WHERE empresa_id IS NULL`,
+        [empresaId]
+      );
+      console.log("[seed] Migration complete.");
+    }
   }
-
-  console.log("[seed] Seeding funcionários (15 total)...");
-  const inserted = await db.insert(funcionariosTable).values(
-    FUNCIONARIOS_SEED.map((f) => ({
-      codigo: f.codigo,
-      nome: f.nome,
-      cargo: f.cargo,
-      vinculo: f.vinculo,
-      situacao: f.situacao,
-      adiantamento: f.adiantamento,
-      transporte: f.transporte,
-      jornada_diaria: f.jornada_diaria,
-      ativo: f.ativo,
-    }))
-  ).returning();
-
-  const ariel = inserted.find((f) => f.codigo === 1);
-  const exemploCLT = inserted.find((f) => f.codigo === 30);
-  const exemploEstagiario = inserted.find((f) => f.codigo === 31);
-
-  if (ariel) {
-    console.log("[seed] Seeding April 2025 registros — ARIEL RIBEIRO...");
-    await seedRegistros(ariel.id, 480, REGISTROS_ABRIL_2025_ARIEL);
-  }
-
-  if (exemploCLT) {
-    console.log("[seed] Seeding April 2025 registros — EXEMPLO COLABORADOR...");
-    await seedRegistros(exemploCLT.id, 480, REGISTROS_ABRIL_2025_EXEMPLO_CLT);
-  }
-
-  if (exemploEstagiario) {
-    console.log("[seed] Seeding April 2025 registros — EXEMPLO ESTAGIÁRIO...");
-    await seedRegistros(exemploEstagiario.id, 360, REGISTROS_ABRIL_2025_EXEMPLO_ESTAGIARIO);
-  }
-
-  console.log("[seed] Seed concluído: 15 funcionários, 3 funcionários com registros de Abril/2025.");
 }

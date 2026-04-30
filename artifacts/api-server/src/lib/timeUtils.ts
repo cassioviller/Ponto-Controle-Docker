@@ -75,6 +75,89 @@ export function calcHEAndAtrasos(
   };
 }
 
+export interface JornadaDia {
+  entrada_padrao: string | null;
+  saida_padrao: string | null;
+  intervalo_padrao: string | null;
+  is_folga: boolean;
+}
+
+export interface CalcResult {
+  total_horas: string | null;
+  he_60: string | null;
+  he_100: string | null;
+  atrasos: string | null;
+  faltas: string;
+  intervalo_used: string | null;
+}
+
+export function calcFromJornada(
+  entrada: string | null | undefined,
+  saida: string | null | undefined,
+  intervalo: string | null | undefined,
+  jornada: JornadaDia | null | undefined,
+  dateStr: string,
+): CalcResult {
+  const isFeriado = isDomFeriado(dateStr);
+  const isFolga = isFeriado || (jornada?.is_folga ?? false);
+
+  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+
+  if (!entrada || !saida) {
+    if (isFolga) {
+      return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "0", intervalo_used: intervaloUsed };
+    }
+    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "1", intervalo_used: intervaloUsed };
+  }
+
+  const entradaMin = timeToMinutes(entrada);
+  const saidaMin = timeToMinutes(saida);
+  const intervaloMin = timeToMinutes(intervaloUsed);
+  let totalMin = saidaMin - entradaMin - intervaloMin;
+  if (totalMin < 0) totalMin = 0;
+
+  if (isFolga) {
+    return {
+      total_horas: minutesToTime(totalMin),
+      he_60: "00:00",
+      he_100: minutesToTime(totalMin),
+      atrasos: "00:00",
+      faltas: "0",
+      intervalo_used: intervaloUsed,
+    };
+  }
+
+  const jornadaMin = jornada
+    ? timeToMinutes(`${timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao)}`.replace(/^-/, "00")) || calcJornadaNetMin(jornada)
+    : 480;
+
+  let atrasoMin = 0;
+  if (jornada?.entrada_padrao && entrada > jornada.entrada_padrao) {
+    const expectedEntradaMin = timeToMinutes(jornada.entrada_padrao);
+    atrasoMin = Math.max(entradaMin - expectedEntradaMin, 0);
+  }
+
+  const extraMin = Math.max(totalMin - jornadaMin, 0);
+  const he60Min = Math.min(extraMin, 120);
+  const he100Min = Math.max(extraMin - 120, 0);
+  const atrasosMin = totalMin < jornadaMin ? jornadaMin - totalMin : atrasoMin;
+
+  return {
+    total_horas: minutesToTime(totalMin),
+    he_60: minutesToTime(he60Min),
+    he_100: minutesToTime(he100Min),
+    atrasos: minutesToTime(Math.max(atrasosMin, 0)),
+    faltas: "0",
+    intervalo_used: intervaloUsed,
+  };
+}
+
+function calcJornadaNetMin(jornada: JornadaDia): number {
+  if (!jornada.entrada_padrao || !jornada.saida_padrao) return 480;
+  const net = timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao);
+  return net > 0 ? net : 480;
+}
+
 export function addTimes(times: (string | null | undefined)[]): string {
   const total = times.reduce((acc, t) => acc + timeToMinutes(t), 0);
   return minutesToTime(total);
@@ -98,6 +181,10 @@ export function getDiaSemana(dateStr: string): string {
   ];
   const d = new Date(dateStr + "T00:00:00");
   return days[d.getDay()] ?? "";
+}
+
+export function getDiaSemanaNum(dateStr: string): number {
+  return new Date(dateStr + "T00:00:00").getDay();
 }
 
 export function getDaysInMonth(year: number, month: number): string[] {

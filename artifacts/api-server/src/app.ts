@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { tenantMiddleware } from "./middlewares/tenant";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +35,7 @@ app.use(express.raw({ type: "application/octet-stream", limit: "10mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(tenantMiddleware);
 app.use("/api", router);
 
 if (process.env.NODE_ENV === "production") {

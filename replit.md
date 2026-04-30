@@ -50,13 +50,39 @@ lib/
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
+## Multi-Tenant Architecture
+
+- Header-based tenant isolation (`X-Empresa-Id` header on every API call)
+- `EmpresaContext` in frontend sets the company ID via `setEmpresaId()` in custom-fetch
+- `tenantMiddleware` on Express extracts `req.empresaId` and filters all queries
+- Default empresa (id=1) created by seed; existing rows migrated automatically
+
 ## Database
 
 Tables:
-- `funcionarios` — employees (código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária)
-- `registros_ponto` — daily time records per employee (entrada, saída, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
+- `empresas` — companies (nome, cnpj, plano)
+- `usuarios` — admin users per empresa (nome, email, senha_hash, role)
+- `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária)
+- `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
+- `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, entrada_padrao, saida_padrao, intervalo_padrao, is_folga)
+- `feriados` — holidays per empresa (data, descricao, tipo)
 
-Seeded with 13 employees and example records for April 2025.
+Migrations run automatically on server start via `lib/db/src/init.ts`.
+Seeded with default empresa + admin user; existing employees migrated to empresa_id=1.
+
+## Auto-Calculation Logic
+
+When editing a time record in FolhaIndividual, changing Entrada or Saída triggers `autoCalculate()`:
+- If dia de folga (jornada_padrao.is_folga) or domingo/feriado → all worked hours = HE 100%
+- Extra hours beyond jornada: first 2h = HE 60%, rest = HE 100%
+- No entrada/saída → counted as falta (absence)
+- Intervalo auto-filled from jornada_padrao when not provided
+
+## API Routes
+
+- `GET/POST/PUT /api/empresas` — company management
+- `GET/PUT /api/funcionarios/:id/jornadas` — weekly schedule per employee
+- All existing routes (`/funcionarios`, `/registros`, `/relatorios`) scoped by X-Empresa-Id header
 
 ## Deployment
 

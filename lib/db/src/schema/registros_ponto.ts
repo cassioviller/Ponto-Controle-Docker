@@ -2,9 +2,12 @@ import { pgTable, serial, integer, text, boolean, date, timestamp, numeric } fro
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { funcionariosTable } from "./funcionarios";
+import { empresasTable } from "./empresas";
 
 export const registrosPontoTable = pgTable("registros_ponto", {
   id: serial("id").primaryKey(),
+  empresa_id: integer("empresa_id")
+    .references(() => empresasTable.id, { onDelete: "cascade" }),
   funcionario_id: integer("funcionario_id")
     .notNull()
     .references(() => funcionariosTable.id, { onDelete: "cascade" }),

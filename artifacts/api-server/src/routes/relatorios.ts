@@ -4,7 +4,7 @@ import {
   registrosPontoTable,
   funcionariosTable,
 } from "@workspace/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import {
   GetConsolidadoQueryParams,
   GetResumoQueryParams,
@@ -35,13 +35,22 @@ router.get("/consolidado", async (req, res) => {
     }
     const { mes } = parsed.data;
     const { year, month } = parseMes(mes);
+    const empresaId = req.empresaId;
 
-    const funcionarios = await db
+    let funcionarios = await db
       .select()
       .from(funcionariosTable)
       .where(eq(funcionariosTable.ativo, true));
 
-    const allRegistros = await db.select().from(registrosPontoTable);
+    if (empresaId) {
+      funcionarios = funcionarios.filter((f) => f.empresa_id === empresaId);
+    }
+
+    let allRegistros = await db.select().from(registrosPontoTable);
+
+    if (empresaId) {
+      allRegistros = allRegistros.filter((r) => r.empresa_id === empresaId);
+    }
 
     const mesRegistros = allRegistros.filter((r) => {
       const [rYear, rMonth] = r.data.split("-");
@@ -129,8 +138,13 @@ router.get("/resumo", async (req, res) => {
     }
     const { mes, situacao, vinculo } = parsed.data;
     const { year, month } = parseMes(mes);
+    const empresaId = req.empresaId;
 
     let funcionarios = await db.select().from(funcionariosTable);
+
+    if (empresaId) {
+      funcionarios = funcionarios.filter((f) => f.empresa_id === empresaId);
+    }
 
     if (situacao) {
       funcionarios = funcionarios.filter((f) => f.situacao === situacao);
@@ -139,7 +153,12 @@ router.get("/resumo", async (req, res) => {
       funcionarios = funcionarios.filter((f) => f.vinculo === vinculo);
     }
 
-    const allRegistros = await db.select().from(registrosPontoTable);
+    let allRegistros = await db.select().from(registrosPontoTable);
+
+    if (empresaId) {
+      allRegistros = allRegistros.filter((r) => r.empresa_id === empresaId);
+    }
+
     const mesRegistros = allRegistros.filter((r) => {
       const [rYear, rMonth] = r.data.split("-");
       return (

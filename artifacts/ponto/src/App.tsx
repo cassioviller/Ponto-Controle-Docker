@@ -9,6 +9,7 @@ import FolhaIndividual from "@/pages/FolhaIndividual";
 import BaterPonto from "@/pages/BaterPonto";
 import Funcionarios from "@/pages/Funcionarios";
 import NotFound from "@/pages/not-found";
+import { EmpresaProvider } from "@/contexts/EmpresaContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,12 +38,14 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <EmpresaProvider>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </EmpresaProvider>
     </QueryClientProvider>
   );
 }

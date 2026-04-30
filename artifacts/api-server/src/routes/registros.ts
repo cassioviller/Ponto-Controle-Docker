@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import {
   registrosPontoTable,
   funcionariosTable,
+  jornadasPadraoTable,
+  feriadosTable,
 } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import {
@@ -14,11 +16,13 @@ import {
 import {
   calcTotalHoras,
   calcHEAndAtrasos,
+  calcFromJornada,
   getDaysInMonth,
   parseMes,
   getCurrentTimeStr,
   getCurrentDateStr,
   getDiaSemana,
+  getDiaSemanaNum,
   isDomFeriado,
   timeToMinutes,
 } from "../lib/timeUtils";
@@ -34,20 +38,52 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+async function getJornadaDia(funcionarioId: number, dateStr: string) {
+  const diaSemana = getDiaSemanaNum(dateStr);
+  const jornadas = await db
+    .select()
+    .from(jornadasPadraoTable)
+    .where(
+      and(
+        eq(jornadasPadraoTable.funcionario_id, funcionarioId),
+        eq(jornadasPadraoTable.dia_semana, diaSemana),
+      )
+    );
+  return jornadas[0] ?? null;
+}
+
+async function isFeriadoEmpresa(empresaId: number | undefined, dateStr: string): Promise<boolean> {
+  if (!empresaId) return false;
+  const feriados = await db
+    .select()
+    .from(feriadosTable)
+    .where(
+      and(
+        eq(feriadosTable.empresa_id, empresaId),
+        eq(feriadosTable.data, dateStr),
+      )
+    );
+  return feriados.length > 0;
+}
+
 router.get("/funcionarios/:id/registros", async (req, res) => {
   try {
     const { id } = GetRegistrosFuncionarioParams.parse({
       id: Number(req.params.id),
     });
     const { mes } = GetRegistrosFuncionarioQueryParams.parse(req.query);
+    const empresaId = req.empresaId;
 
-    const [funcionario] = await db
-      .select()
-      .from(funcionariosTable)
-      .where(eq(funcionariosTable.id, id));
+    const funcionarioQuery = db.select().from(funcionariosTable).where(eq(funcionariosTable.id, id));
+    const [funcionario] = await funcionarioQuery;
 
     if (!funcionario) {
       res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
+
+    if (empresaId && funcionario.empresa_id && funcionario.empresa_id !== empresaId) {
+      res.status(403).json({ error: "Acesso negado" });
       return;
     }
 
@@ -66,8 +102,16 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
 
     const registroMap = new Map(mesRegistros.map((r) => [r.data, r]));
 
+    const jornadas = await db
+      .select()
+      .from(jornadasPadraoTable)
+      .where(eq(jornadasPadraoTable.funcionario_id, id));
+    const jornadaMap = new Map(jornadas.map((j) => [j.dia_semana, j]));
+
     const folhaDias = days.map((data) => {
       const reg = registroMap.get(data);
+      const diaSemana = getDiaSemanaNum(data);
+      const jornada = jornadaMap.get(diaSemana) ?? null;
       return {
         id: reg?.id ?? null,
         funcionario_id: id,
@@ -82,6 +126,12 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
         atrasos: reg?.atrasos ?? null,
         faltas: reg?.faltas ?? null,
         observacoes: reg?.observacoes ?? null,
+        jornada_padrao: jornada ? {
+          entrada_padrao: jornada.entrada_padrao,
+          saida_padrao: jornada.saida_padrao,
+          intervalo_padrao: jornada.intervalo_padrao,
+          is_folga: jornada.is_folga,
+        } : null,
       };
     });
 
@@ -142,6 +192,7 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
 router.post("/registros", async (req, res) => {
   try {
     const body = UpsertRegistroBody.parse(req.body);
+    const empresaId = req.empresaId ?? undefined;
 
     const [funcionario] = await db
       .select()
@@ -150,15 +201,49 @@ router.post("/registros", async (req, res) => {
 
     const jornadaDiaria = funcionario?.jornada_diaria ?? "08:00";
 
-    const { total_horas } = calcTotalHoras(body.entrada, body.saida, body.intervalo);
+    const jornadaDia = await getJornadaDia(body.funcionario_id, body.data);
+    const feriadoEmpresa = await isFeriadoEmpresa(empresaId, body.data);
 
-    const autoHE = calcHEAndAtrasos(
-      body.entrada,
-      body.saida,
-      body.intervalo,
-      jornadaDiaria,
-      body.data,
-    );
+    const intervaloFinal = body.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
+
+    const { total_horas } = calcTotalHoras(body.entrada, body.saida, intervaloFinal);
+
+    let he_60: string | null;
+    let he_100: string | null;
+    let atrasos: string | null;
+    let faltas: string | null;
+
+    if (jornadaDia || feriadoEmpresa) {
+      const jornadaInfo = jornadaDia ? {
+        entrada_padrao: jornadaDia.entrada_padrao,
+        saida_padrao: jornadaDia.saida_padrao,
+        intervalo_padrao: jornadaDia.intervalo_padrao,
+        is_folga: jornadaDia.is_folga || feriadoEmpresa,
+      } : {
+        entrada_padrao: null,
+        saida_padrao: null,
+        intervalo_padrao: null,
+        is_folga: feriadoEmpresa,
+      };
+
+      const calc = calcFromJornada(body.entrada, body.saida, intervaloFinal, jornadaInfo, body.data);
+      he_60 = calc.he_60;
+      he_100 = calc.he_100;
+      atrasos = calc.atrasos;
+      faltas = calc.faltas;
+    } else {
+      const autoHE = calcHEAndAtrasos(
+        body.entrada,
+        body.saida,
+        intervaloFinal,
+        jornadaDiaria,
+        body.data,
+      );
+      he_60 = autoHE.he_60;
+      he_100 = autoHE.he_100;
+      atrasos = autoHE.atrasos;
+      faltas = null;
+    }
 
     const existing = await db
       .select()
@@ -171,16 +256,17 @@ router.post("/registros", async (req, res) => {
       );
 
     const dataToSave = {
+      empresa_id: empresaId ?? funcionario?.empresa_id ?? null,
       funcionario_id: body.funcionario_id,
       data: body.data,
       entrada: body.entrada ?? null,
       saida: body.saida ?? null,
-      intervalo: body.intervalo ?? null,
+      intervalo: intervaloFinal ?? null,
       total_horas: total_horas ?? null,
-      he_60: body.he_60 !== undefined ? body.he_60 : autoHE.he_60,
-      he_100: body.he_100 !== undefined ? body.he_100 : autoHE.he_100,
-      atrasos: body.atrasos !== undefined ? body.atrasos : autoHE.atrasos,
-      faltas: body.faltas ?? null,
+      he_60: body.he_60 !== undefined && body.he_60 !== null ? body.he_60 : he_60,
+      he_100: body.he_100 !== undefined && body.he_100 !== null ? body.he_100 : he_100,
+      atrasos: body.atrasos !== undefined && body.atrasos !== null ? body.atrasos : atrasos,
+      faltas: body.faltas !== undefined && body.faltas !== null ? body.faltas : (faltas ?? null),
       observacoes: body.observacoes ?? null,
       atualizado_em: new Date(),
     };
@@ -210,6 +296,7 @@ router.post("/ponto/bater", async (req, res) => {
     const body = BaterPontoBody.parse(req.body);
     const horario = getCurrentTimeStr();
     const data = getCurrentDateStr();
+    const empresaId = req.empresaId ?? undefined;
 
     const [funcionario] = await db
       .select()
@@ -234,22 +321,43 @@ router.post("/ponto/bater", async (req, res) => {
     let row;
     if (existing.length > 0 && existing[0]) {
       const prevReg = existing[0];
-      const heAuto =
-        body.tipo === "saida"
-          ? calcHEAndAtrasos(prevReg.entrada, horario, prevReg.intervalo, funcionario.jornada_diaria, data)
-          : { he_60: undefined, he_100: undefined, atrasos: undefined };
 
-      const updateFields =
-        body.tipo === "entrada"
-          ? { entrada: horario, atualizado_em: new Date() }
-          : {
-              saida: horario,
-              atualizado_em: new Date(),
-              total_horas: calcTotalHoras(prevReg.entrada, horario, prevReg.intervalo).total_horas,
-              he_60: heAuto.he_60 ?? null,
-              he_100: heAuto.he_100 ?? null,
-              atrasos: heAuto.atrasos ?? null,
-            };
+      let updateFields;
+      if (body.tipo === "entrada") {
+        updateFields = { entrada: horario, atualizado_em: new Date() };
+      } else {
+        const jornadaDia = await getJornadaDia(body.funcionario_id, data);
+        const feriadoEmpresa = await isFeriadoEmpresa(empresaId, data);
+        const intervaloFinal = prevReg.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
+
+        let he_60, he_100, atrasos;
+        if (jornadaDia || feriadoEmpresa) {
+          const jornadaInfo = jornadaDia ? {
+            entrada_padrao: jornadaDia.entrada_padrao,
+            saida_padrao: jornadaDia.saida_padrao,
+            intervalo_padrao: jornadaDia.intervalo_padrao,
+            is_folga: jornadaDia.is_folga || feriadoEmpresa,
+          } : { entrada_padrao: null, saida_padrao: null, intervalo_padrao: null, is_folga: feriadoEmpresa };
+          const calc = calcFromJornada(prevReg.entrada, horario, intervaloFinal, jornadaInfo, data);
+          he_60 = calc.he_60;
+          he_100 = calc.he_100;
+          atrasos = calc.atrasos;
+        } else {
+          const heAuto = calcHEAndAtrasos(prevReg.entrada, horario, intervaloFinal, funcionario.jornada_diaria, data);
+          he_60 = heAuto.he_60;
+          he_100 = heAuto.he_100;
+          atrasos = heAuto.atrasos;
+        }
+
+        updateFields = {
+          saida: horario,
+          atualizado_em: new Date(),
+          total_horas: calcTotalHoras(prevReg.entrada, horario, intervaloFinal).total_horas,
+          he_60: he_60 ?? null,
+          he_100: he_100 ?? null,
+          atrasos: atrasos ?? null,
+        };
+      }
 
       [row] = await db
         .update(registrosPontoTable)
@@ -259,8 +367,8 @@ router.post("/ponto/bater", async (req, res) => {
     } else {
       const insertData =
         body.tipo === "entrada"
-          ? { funcionario_id: body.funcionario_id, data, entrada: horario }
-          : { funcionario_id: body.funcionario_id, data, saida: horario };
+          ? { empresa_id: empresaId ?? funcionario.empresa_id ?? null, funcionario_id: body.funcionario_id, data, entrada: horario }
+          : { empresa_id: empresaId ?? funcionario.empresa_id ?? null, funcionario_id: body.funcionario_id, data, saida: horario };
 
       [row] = await db
         .insert(registrosPontoTable)

@@ -17,6 +17,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _empresaId: number | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -27,6 +28,14 @@ let _authTokenGetter: AuthTokenGetter | null = null;
  */
 export function setBaseUrl(url: string | null): void {
   _baseUrl = url ? url.replace(/\/+$/, "") : null;
+}
+
+/**
+ * Set the current empresa (tenant) ID. When set, an `X-Empresa-Id` header
+ * is attached to every API request for tenant isolation.
+ */
+export function setEmpresaId(id: number | null): void {
+  _empresaId = id;
 }
 
 /**
@@ -356,6 +365,11 @@ export async function customFetch<T = unknown>(
     if (token) {
       headers.set("authorization", `Bearer ${token}`);
     }
+  }
+
+  // Attach empresa (tenant) ID header for multi-tenant isolation.
+  if (_empresaId !== null && !headers.has("x-empresa-id")) {
+    headers.set("x-empresa-id", String(_empresaId));
   }
 
   const requestInfo = { method, url: resolveUrl(input) };

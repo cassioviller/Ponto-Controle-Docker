@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   useGetRegistrosFuncionario,
@@ -9,14 +9,102 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatMes, getCurrentMes, getMonthOptions, baseUrl } from "@/lib/utils";
 import type { FolhaMensal, RegistroPonto } from "@workspace/api-client-react";
 
-type FolhaRegistro = RegistroPonto & { dia_semana?: string };
+type JornadaPadrao = {
+  entrada_padrao: string | null;
+  saida_padrao: string | null;
+  intervalo_padrao: string | null;
+  is_folga: boolean;
+} | null;
+
+type FolhaRegistro = RegistroPonto & {
+  dia_semana?: string;
+  jornada_padrao?: JornadaPadrao;
+};
 
 interface EditRow extends Partial<RegistroPonto> {
   data: string;
   dia_semana?: string;
+  jornada_padrao?: JornadaPadrao;
 }
 
 type FolhaMensalEx = Omit<FolhaMensal, "registros"> & { registros: FolhaRegistro[] };
+
+function timeToMinutes(t: string | null | undefined): number {
+  if (!t) return 0;
+  const [h, m] = t.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function minutesToTime(m: number): string {
+  if (m < 0) m = 0;
+  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+}
+
+function isDomFeriado(dateStr: string): boolean {
+  const d = new Date(dateStr + "T00:00:00");
+  if (d.getDay() === 0) return true;
+  const year = d.getFullYear();
+  const easter = calcEaster(year);
+  const gf = new Date(easter); gf.setDate(easter.getDate() - 2);
+  const cc = new Date(easter); cc.setDate(easter.getDate() + 60);
+  const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const feriados = new Set([
+    `${year}-01-01`, `${year}-04-21`, `${year}-05-01`, `${year}-09-07`,
+    `${year}-10-12`, `${year}-11-02`, `${year}-11-15`, `${year}-11-20`, `${year}-12-25`,
+    fmt(gf), fmt(cc),
+  ]);
+  return feriados.has(dateStr);
+}
+
+function calcEaster(year: number): Date {
+  const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(year,month-1,day);
+}
+
+function autoCalculate(
+  entrada: string | null | undefined,
+  saida: string | null | undefined,
+  intervalo: string | null | undefined,
+  jornada: JornadaPadrao,
+  dateStr: string,
+): { total_horas: string | null; he_60: string | null; he_100: string | null; atrasos: string | null; faltas: string; intervalo_used: string | null } {
+  const isFolga = isDomFeriado(dateStr) || (jornada?.is_folga ?? false);
+  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+
+  if (!entrada || !saida) {
+    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: isFolga ? "0" : "1", intervalo_used: intervaloUsed };
+  }
+
+  const entradaMin = timeToMinutes(entrada);
+  const saidaMin = timeToMinutes(saida);
+  const intervaloMin = timeToMinutes(intervaloUsed);
+  let totalMin = saidaMin - entradaMin - intervaloMin;
+  if (totalMin < 0) totalMin = 0;
+
+  if (isFolga) {
+    return { total_horas: minutesToTime(totalMin), he_60: "00:00", he_100: minutesToTime(totalMin), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed };
+  }
+
+  let jornadaMin = 480;
+  if (jornada?.entrada_padrao && jornada?.saida_padrao) {
+    const net = timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao);
+    if (net > 0) jornadaMin = net;
+  }
+
+  const extraMin = Math.max(totalMin - jornadaMin, 0);
+  const he60Min = Math.min(extraMin, 120);
+  const he100Min = Math.max(extraMin - 120, 0);
+  const atrasosMin = totalMin < jornadaMin ? jornadaMin - totalMin : 0;
+
+  return {
+    total_horas: minutesToTime(totalMin),
+    he_60: minutesToTime(he60Min),
+    he_100: minutesToTime(he100Min),
+    atrasos: minutesToTime(atrasosMin),
+    faltas: "0",
+    intervalo_used: intervaloUsed,
+  };
+}
 
 export default function FolhaIndividual() {
   const { id } = useParams<{ id: string }>();
@@ -50,6 +138,34 @@ export default function FolhaIndividual() {
 
   function handleEdit(reg: FolhaRegistro) {
     setEditingRow({ ...reg });
+  }
+
+  function handleEditFieldChange(key: keyof EditRow, value: string | null) {
+    setEditingRow((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, [key]: value || null };
+
+      if (key === "entrada" || key === "saida" || key === "intervalo") {
+        const calc = autoCalculate(
+          key === "entrada" ? value : prev.entrada,
+          key === "saida" ? value : prev.saida,
+          key === "intervalo" ? value : prev.intervalo,
+          prev.jornada_padrao ?? null,
+          prev.data,
+        );
+        return {
+          ...updated,
+          total_horas: calc.total_horas,
+          he_60: calc.he_60,
+          he_100: calc.he_100,
+          atrasos: calc.atrasos,
+          faltas: calc.faltas,
+          intervalo: calc.intervalo_used,
+        };
+      }
+
+      return updated;
+    });
   }
 
   async function handleSave() {
@@ -208,7 +324,8 @@ export default function FolhaIndividual() {
                 const dt = new Date(reg.data + "T00:00:00");
                 const isSabado = dt.getDay() === 6;
                 const isDomingo = dt.getDay() === 0;
-                const rowBg = isDomingo
+                const isFolga = reg.jornada_padrao?.is_folga ?? false;
+                const rowBg = isDomingo || isFolga
                   ? "bg-yellow-50"
                   : isSabado
                   ? "bg-orange-50"
@@ -227,6 +344,7 @@ export default function FolhaIndividual() {
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-500">
                       {reg.dia_semana?.slice(0, 3)}
+                      {isFolga && !isDomingo && <span className="ml-1 text-orange-400 text-xs">F</span>}
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.entrada)}</td>
                     <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.saida)}</td>
@@ -272,30 +390,42 @@ export default function FolhaIndividual() {
       {editingRow && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-            <h2 className="text-base font-bold text-[#1B2A4A] mb-4">
+            <h2 className="text-base font-bold text-[#1B2A4A] mb-1">
               Editar Registro — {editingRow.data} ({editingRow.dia_semana})
             </h2>
+            {editingRow.jornada_padrao && !editingRow.jornada_padrao.is_folga && (
+              <p className="text-xs text-gray-500 mb-3">
+                Jornada padrão: {editingRow.jornada_padrao.entrada_padrao ?? "—"} — {editingRow.jornada_padrao.saida_padrao ?? "—"} (intervalo: {editingRow.jornada_padrao.intervalo_padrao ?? "—"})
+              </p>
+            )}
+            {(editingRow.jornada_padrao?.is_folga || isDomFeriado(editingRow.data)) && (
+              <p className="text-xs text-amber-600 mb-3 bg-amber-50 px-2 py-1 rounded">
+                {isDomFeriado(editingRow.data) ? "Domingo / Feriado Nacional" : "Dia de Folga"} — horas trabalhadas contam como HE 100%
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-3">
               {(
                 [
                   { key: "entrada", label: "Entrada" },
                   { key: "saida", label: "Saída" },
                   { key: "intervalo", label: "Intervalo" },
+                  { key: "total_horas", label: "Total Horas", readOnly: true },
                   { key: "he_60", label: "HE 60%" },
                   { key: "he_100", label: "HE 100%" },
                   { key: "atrasos", label: "Atrasos" },
-                ] as { key: keyof EditRow; label: string }[]
-              ).map(({ key, label }) => (
+                ] as { key: keyof EditRow; label: string; readOnly?: boolean }[]
+              ).map(({ key, label, readOnly }) => (
                 <div key={key as string}>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">{label} (HH:MM)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {label} (HH:MM){readOnly ? " — auto" : ""}
+                  </label>
                   <input
                     type="text"
                     placeholder="HH:MM"
                     value={(editingRow[key] as string | null | undefined) ?? ""}
-                    onChange={(e) =>
-                      setEditingRow((prev) => prev ? { ...prev, [key]: e.target.value || null } : null)
-                    }
-                    className="w-full border rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    readOnly={readOnly}
+                    onChange={(e) => handleEditFieldChange(key, e.target.value)}
+                    className={`w-full border rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9] ${readOnly ? "bg-gray-50 text-gray-500" : ""}`}
                   />
                 </div>
               ))}
@@ -314,7 +444,9 @@ export default function FolhaIndividual() {
                 </select>
               </div>
               <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">Observações</label>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Observações (atestado, viagem, ausência autorizada, etc.)
+                </label>
                 <input
                   type="text"
                   value={editingRow.observacoes ?? ""}
@@ -322,6 +454,7 @@ export default function FolhaIndividual() {
                     setEditingRow((prev) => prev ? { ...prev, observacoes: e.target.value || null } : null)
                   }
                   className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                  placeholder="Ex: Atestado médico, viagem a serviço..."
                 />
               </div>
             </div>
