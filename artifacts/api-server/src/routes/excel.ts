@@ -320,7 +320,10 @@ router.post("/importar", async (req: Request, res: Response) => {
     }
 
     const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(rawBody.buffer as ArrayBuffer);
+    // ExcelJS declares its own `Buffer extends ArrayBuffer` that conflicts with Node.js Buffer generics
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-expect-error
+    await wb.xlsx.load(rawBody);
 
     const ws =
       wb.getWorksheet("Registros de Ponto") ??
@@ -375,8 +378,16 @@ router.post("/importar", async (req: Request, res: Response) => {
         [he100, "HE 100%"],
         [atrasos, "Atrasos"],
       ];
-      if (!entrada || !saida) {
-        erros.push(`Linha ${row.number} (${dataStr}): campos obrigatórios Entrada e Saída estão ausentes`);
+      if (!entrada && !saida) {
+        continue;
+      }
+
+      if (entrada && !saida) {
+        erros.push(`Linha ${row.number} (${dataStr}): Entrada informada mas Saída está ausente`);
+        continue;
+      }
+      if (!entrada && saida) {
+        erros.push(`Linha ${row.number} (${dataStr}): Saída informada mas Entrada está ausente`);
         continue;
       }
 
