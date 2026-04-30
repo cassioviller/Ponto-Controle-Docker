@@ -9,7 +9,7 @@ import {
   GetConsolidadoQueryParams,
   GetResumoQueryParams,
 } from "@workspace/api-zod";
-import { parseMes, getDaysInMonth } from "../lib/timeUtils";
+import { parseMes, getDaysInMonth, isDomFeriado } from "../lib/timeUtils";
 
 const router = Router();
 
@@ -51,7 +51,7 @@ router.get("/consolidado", async (req, res) => {
     });
 
     const days = getDaysInMonth(year, month);
-    const domingos = days.filter((d) => new Date(d + "T00:00:00").getDay() === 0).length;
+    const domFeriadosDias = days.filter((d) => isDomFeriado(d));
 
     const linhas = funcionarios.map((f) => {
       const regs = mesRegistros
@@ -90,7 +90,7 @@ router.get("/consolidado", async (req, res) => {
         atrasos: minutesToTime(atrasosMin),
         faltas,
         dias_trabalhados: diasTrabalhados,
-        dom_feriados: domingos,
+        dom_feriados: domFeriadosDias.length,
       };
     });
 
@@ -109,7 +109,7 @@ router.get("/consolidado", async (req, res) => {
       atrasos: sumHHMM(linhas, "atrasos"),
       faltas: linhas.reduce((acc, l) => acc + l.faltas, 0),
       dias_trabalhados: linhas.reduce((acc, l) => acc + l.dias_trabalhados, 0),
-      dom_feriados: domingos,
+      dom_feriados: domFeriadosDias.length,
     };
 
     res.json({ mes, linhas, total_geral: totalGeral });

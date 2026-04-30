@@ -19,6 +19,7 @@ import {
   getCurrentTimeStr,
   getCurrentDateStr,
   getDiaSemana,
+  isDomFeriado,
 } from "../lib/timeUtils";
 
 const router = Router();
@@ -111,10 +112,7 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       (r) => r.entrada && r.saida,
     ).length;
 
-    const domFeriados = folhaDias.filter((d) => {
-      const dt = new Date(d.data + "T00:00:00");
-      return dt.getDay() === 0;
-    }).length;
+    const domFeriados = folhaDias.filter((d) => isDomFeriado(d.data)).length;
 
     const resumo = {
       total_horas: minutesToTime(totalHoras),
