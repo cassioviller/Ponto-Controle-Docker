@@ -375,9 +375,14 @@ router.post("/importar", async (req: Request, res: Response) => {
         [he100, "HE 100%"],
         [atrasos, "Atrasos"],
       ];
+      if (!entrada || !saida) {
+        erros.push(`Linha ${row.number} (${dataStr}): campos obrigatórios Entrada e Saída estão ausentes`);
+        continue;
+      }
+
       const timeErrors = timeFields
         .filter(([val]) => val !== null && !isValidHHMM(val))
-        .map(([val, label]) => `${label} inválido "${val}" — use HH:MM`);
+        .map(([val, label]) => `${label} inválido "${val}" — use HH:MM (minutos 00-59)`);
       if (timeErrors.length > 0) {
         erros.push(`Linha ${row.number} (${dataStr}): ${timeErrors.join("; ")}`);
         continue;
