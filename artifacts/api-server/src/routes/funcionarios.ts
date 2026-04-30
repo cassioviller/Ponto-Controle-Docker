@@ -96,7 +96,7 @@ router.delete("/funcionarios/:id", async (req, res) => {
     const { id } = DeleteFuncionarioParams.parse({ id: Number(req.params.id) });
     const updated = await db
       .update(funcionariosTable)
-      .set({ ativo: false, situacao: "Inativo" })
+      .set({ ativo: false, situacao: "Demitido" })
       .where(eq(funcionariosTable.id, id))
       .returning();
     if (updated.length === 0) {
