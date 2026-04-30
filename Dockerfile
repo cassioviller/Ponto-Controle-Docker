@@ -7,8 +7,7 @@ RUN corepack enable
 WORKDIR /app
 
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
-COPY pnpm-catalog.yaml* ./
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.base.json ./
 COPY lib ./lib
 COPY artifacts/api-server ./artifacts/api-server
 COPY artifacts/ponto ./artifacts/ponto
@@ -18,8 +17,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile
 
 FROM deps AS build
-RUN pnpm --filter @workspace/db run generate 2>/dev/null || true
-RUN pnpm --filter @workspace/api-spec run codegen 2>/dev/null || true
+RUN pnpm --filter @workspace/api-spec run codegen
 RUN PORT=5987 BASE_PATH=/ pnpm --filter @workspace/ponto run build
 RUN pnpm --filter @workspace/api-server run build
 
@@ -34,6 +32,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/lib ./lib
 COPY --from=deps /app/artifacts ./artifacts
+COPY --from=build /app/lib/api-client-react/src/generated ./lib/api-client-react/src/generated
+COPY --from=build /app/lib/api-zod/src/generated ./lib/api-zod/src/generated
 COPY --from=build /app/artifacts/ponto/dist ./artifacts/ponto/dist
 COPY --from=build /app/artifacts/api-server/dist ./artifacts/api-server/dist
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
