@@ -36,10 +36,47 @@ const HEADER_STYLE: Partial<ExcelJS.Style> = {
   },
 };
 
+function isValidHHMM(val: string | null): boolean {
+  if (!val) return true;
+  return /^\d{1,2}:\d{2}$/.test(val);
+}
+
 router.get("/exportar/modelo", async (_req: Request, res: Response) => {
   try {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Controle de Ponto";
+
+    const funcionariosAtivos = await db
+      .select()
+      .from(funcionariosTable)
+      .where(eq(funcionariosTable.ativo, true));
+
+    const funcWs = wb.addWorksheet("Funcionários");
+    funcWs.columns = [
+      { header: "Código", key: "codigo", width: 10 },
+      { header: "Nome", key: "nome", width: 32 },
+      { header: "Cargo", key: "cargo", width: 24 },
+      { header: "Vínculo", key: "vinculo", width: 16 },
+      { header: "Situação", key: "situacao", width: 14 },
+      { header: "Jornada Diária", key: "jornada_diaria", width: 16 },
+      { header: "Adiantamento", key: "adiantamento", width: 14 },
+      { header: "Transporte", key: "transporte", width: 14 },
+    ];
+    const funcHeader = funcWs.getRow(1);
+    funcHeader.eachCell((cell) => { Object.assign(cell, { style: HEADER_STYLE }); });
+    funcHeader.height = 22;
+    funcionariosAtivos.forEach((f) => {
+      funcWs.addRow({
+        codigo: f.codigo,
+        nome: f.nome,
+        cargo: f.cargo,
+        vinculo: f.vinculo,
+        situacao: f.situacao,
+        jornada_diaria: f.jornada_diaria,
+        adiantamento: f.adiantamento ? "Sim" : "Não",
+        transporte: f.transporte ? "Sim" : "Não",
+      });
+    });
 
     const ws = wb.addWorksheet("Registros de Ponto");
 
@@ -323,6 +360,22 @@ router.post("/importar", async (req: Request, res: Response) => {
       const faltasVal = row.getCell(9).value;
       const faltas = faltasVal !== null && faltasVal !== undefined ? String(faltasVal) : "0";
       const observacoes = getCellStr(10);
+
+      const timeFields: Array<[string | null, string]> = [
+        [entrada, "Entrada"],
+        [saida, "Saída"],
+        [intervalo, "Intervalo"],
+        [he60, "HE 60%"],
+        [he100, "HE 100%"],
+        [atrasos, "Atrasos"],
+      ];
+      const timeErrors = timeFields
+        .filter(([val]) => val !== null && !isValidHHMM(val))
+        .map(([val, label]) => `${label} inválido "${val}" — use HH:MM`);
+      if (timeErrors.length > 0) {
+        erros.push(`Linha ${row.number} (${dataStr}): ${timeErrors.join("; ")}`);
+        continue;
+      }
 
       const { total_horas } = calcTotalHoras(entrada, saida, intervalo);
 

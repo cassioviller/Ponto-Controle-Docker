@@ -100,7 +100,8 @@ export default function Funcionarios() {
     setDeleteConfirm(null);
   }
 
-  const setField = (k: string, v: any) => setForm((p) => ({ ...p, [k]: v }));
+  const setField = (k: string, v: string | boolean | number | undefined) =>
+    setForm((p) => ({ ...p, [k]: v }));
 
   return (
     <div className="h-full flex flex-col">

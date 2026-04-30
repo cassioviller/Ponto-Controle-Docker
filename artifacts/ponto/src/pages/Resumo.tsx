@@ -74,8 +74,8 @@ export default function Resumo() {
       );
       const json = await resp.json();
       setImportResult(json);
-    } catch (e: any) {
-      setImportResult({ importados: 0, erros: [e.message] });
+    } catch (e: unknown) {
+      setImportResult({ importados: 0, erros: [e instanceof Error ? e.message : String(e)] });
     } finally {
       setImporting(false);
     }

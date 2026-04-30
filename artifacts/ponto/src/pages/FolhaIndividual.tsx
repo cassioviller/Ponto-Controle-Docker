@@ -9,10 +9,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { formatMes, getCurrentMes, getMonthOptions, baseUrl } from "@/lib/utils";
 import type { FolhaMensal, RegistroPonto } from "@workspace/api-client-react";
 
+type FolhaRegistro = RegistroPonto & { dia_semana?: string };
+
 interface EditRow extends Partial<RegistroPonto> {
   data: string;
   dia_semana?: string;
 }
+
+type FolhaMensalEx = Omit<FolhaMensal, "registros"> & { registros: FolhaRegistro[] };
 
 export default function FolhaIndividual() {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +38,7 @@ export default function FolhaIndividual() {
     },
   );
 
-  const folha = data as FolhaMensal | undefined;
+  const folha = data as FolhaMensalEx | undefined;
   const upsert = useUpsertRegistro();
 
   const [editingRow, setEditingRow] = useState<EditRow | null>(null);
@@ -44,7 +48,7 @@ export default function FolhaIndividual() {
   const [importResult, setImportResult] = useState<{ importados: number; erros: string[] } | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  function handleEdit(reg: any) {
+  function handleEdit(reg: FolhaRegistro) {
     setEditingRow({ ...reg });
   }
 
@@ -97,8 +101,8 @@ export default function FolhaIndividual() {
       await qc.invalidateQueries({
         queryKey: getGetRegistrosFuncionarioQueryKey(numId, { mes }),
       });
-    } catch (e: any) {
-      setImportResult({ importados: 0, erros: [e.message] });
+    } catch (e: unknown) {
+      setImportResult({ importados: 0, erros: [e instanceof Error ? e.message : String(e)] });
     } finally {
       setImporting(false);
     }
@@ -200,7 +204,7 @@ export default function FolhaIndividual() {
                   </td>
                 </tr>
               )}
-              {folha?.registros?.map((reg: any) => {
+              {folha?.registros?.map((reg: FolhaRegistro) => {
                 const dt = new Date(reg.data + "T00:00:00");
                 const isSabado = dt.getDay() === 6;
                 const isDomingo = dt.getDay() === 0;
