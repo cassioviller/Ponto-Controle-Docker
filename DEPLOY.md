@@ -8,11 +8,14 @@
 
 ## Variáveis de Ambiente Necessárias
 
-| Variável       | Exemplo                                           | Descrição                      |
-|----------------|---------------------------------------------------|-------------------------------|
-| `DATABASE_URL` | `postgresql://user:pass@host:5432/controle_ponto` | Connection string do PostgreSQL|
-| `PORT`         | `5987`                                            | Porta do servidor (padrão)    |
-| `NODE_ENV`     | `production`                                      | Ambiente de produção           |
+| Variável            | Exemplo                                           | Descrição                                                |
+|---------------------|---------------------------------------------------|----------------------------------------------------------|
+| `DATABASE_URL`      | `postgresql://user:pass@host:5432/controle_ponto` | Connection string do PostgreSQL                          |
+| `PORT`              | `5987`                                            | Porta do servidor (padrão)                               |
+| `NODE_ENV`          | `production`                                      | Ambiente de produção                                     |
+| `JWT_SECRET`        | `<segredo aleatório forte>`                       | **Obrigatório em produção.** Assina os tokens JWT do login |
+| `SUPER_ADMIN_EMAIL` | `super@admin.com`                                 | (Opcional) E-mail do super admin criado no seed          |
+| `SUPER_ADMIN_SENHA` | `super123`                                        | (Opcional) Senha inicial do super admin                  |
 
 ## Build e Deploy com Docker
 
@@ -25,6 +28,7 @@ docker run -p 5987:5987 \
   -e DATABASE_URL="postgresql://user:pass@localhost:5432/db" \
   -e PORT=5987 \
   -e NODE_ENV=production \
+  -e JWT_SECRET="$(openssl rand -hex 32)" \
   controle-ponto:latest
 ```
 
@@ -37,8 +41,21 @@ docker run -p 5987:5987 \
    - `DATABASE_URL` = connection string do PostgreSQL
    - `PORT` = `5987`
    - `NODE_ENV` = `production`
+   - `JWT_SECRET` = um segredo forte (gere com `openssl rand -hex 32`)
+   - (opcional) `SUPER_ADMIN_EMAIL` e `SUPER_ADMIN_SENHA` para definir a credencial inicial do super admin
 5. Defina a porta exposta: `5987`
 6. Deploy
+
+## Login Inicial
+
+- **Super admin** (gestão de tenants e usuários admin):
+  - URL: `/login`
+  - E-mail: `super@admin.com` (ou `SUPER_ADMIN_EMAIL`)
+  - Senha: `super123` (ou `SUPER_ADMIN_SENHA`) — **troque após o primeiro login**
+  - Após o login, é redirecionado para `/super-admin`, onde pode criar empresas (tenants) e usuários admin de cada empresa.
+- **Admin de empresa** (acesso ao app de ponto da própria empresa):
+  - Criado pelo super admin, ou na empresa Demo: `admin@demo.com` / `admin123`.
+  - Cada admin enxerga apenas os dados da sua empresa (isolamento por `X-Empresa-Id` derivado do JWT).
 
 ## Banco de Dados — Inicialização Automática
 

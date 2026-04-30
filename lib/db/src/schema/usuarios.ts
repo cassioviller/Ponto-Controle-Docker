@@ -6,7 +6,6 @@ import { empresasTable } from "./empresas";
 export const usuariosTable = pgTable("usuarios", {
   id: serial("id").primaryKey(),
   empresa_id: integer("empresa_id")
-    .notNull()
     .references(() => empresasTable.id, { onDelete: "cascade" }),
   nome: text("nome").notNull(),
   email: text("email").notNull(),

@@ -6,7 +6,7 @@ import {
   getGetRegistrosFuncionarioQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { formatMes, getCurrentMes, getMonthOptions, baseUrl } from "@/lib/utils";
+import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile } from "@/lib/utils";
 import type { FolhaMensal, RegistroPonto } from "@workspace/api-client-react";
 
 type JornadaPadrao = {
@@ -196,7 +196,9 @@ export default function FolhaIndividual() {
   }
 
   function handleDownloadFolha() {
-    window.open(`${baseUrl()}/api/exportar/folha/${numId}?mes=${mes}`, "_blank");
+    downloadAuthenticatedFile(`/api/exportar/folha/${numId}?mes=${mes}`).catch((e) => {
+      alert(e instanceof Error ? e.message : String(e));
+    });
   }
 
   async function handleImport() {
@@ -208,7 +210,7 @@ export default function FolhaIndividual() {
         `${baseUrl()}/api/importar?funcionario_id=${numId}&mes=${mes}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/octet-stream" },
+          headers: authHeaders({ "Content-Type": "application/octet-stream" }),
           body: buf,
         },
       );

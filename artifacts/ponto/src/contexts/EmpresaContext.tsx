@@ -1,64 +1,14 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { setEmpresaId } from "@workspace/api-client-react";
-import { baseUrl } from "@/lib/utils";
+import { useAuth, type AuthEmpresa } from "@/contexts/AuthContext";
 
-export interface Empresa {
-  id: number;
-  nome: string;
-  cnpj: string | null;
-  slug: string;
-  plano: string;
-  ativo: boolean;
-  criado_em: string;
-}
-
-interface EmpresaContextValue {
-  empresa: Empresa | null;
-  empresas: Empresa[];
-  setEmpresa: (e: Empresa) => void;
-  loading: boolean;
-}
-
-const EmpresaContext = createContext<EmpresaContextValue>({
-  empresa: null,
-  empresas: [],
-  setEmpresa: () => {},
-  loading: true,
-});
-
-export function EmpresaProvider({ children }: { children: ReactNode }) {
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
-  const [empresa, setEmpresaState] = useState<Empresa | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const base = baseUrl();
-    fetch(`${base}/api/empresas`)
-      .then((r) => r.json())
-      .then((data: Empresa[]) => {
-        setEmpresas(data);
-        if (data.length > 0) {
-          const first = data[0]!;
-          setEmpresaState(first);
-          setEmpresaId(first.id);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  function setEmpresa(e: Empresa) {
-    setEmpresaState(e);
-    setEmpresaId(e.id);
-  }
-
-  return (
-    <EmpresaContext.Provider value={{ empresa, empresas, setEmpresa, loading }}>
-      {children}
-    </EmpresaContext.Provider>
-  );
-}
+// Compatibility shim: keep the old `useEmpresa` API but delegate to AuthContext.
+export type Empresa = AuthEmpresa;
 
 export function useEmpresa() {
-  return useContext(EmpresaContext);
+  const { empresa, empresas, setActiveEmpresa, loading } = useAuth();
+  return {
+    empresa,
+    empresas,
+    setEmpresa: setActiveEmpresa,
+    loading,
+  };
 }

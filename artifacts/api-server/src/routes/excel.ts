@@ -18,6 +18,7 @@ import {
   calcTotalHoras,
   calcHEAndAtrasos,
 } from "../lib/timeUtils";
+import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
 const router = Router();
 
@@ -45,15 +46,20 @@ function isValidHHMM(val: string | null): boolean {
   return minutes >= 0 && minutes <= 59;
 }
 
-router.get("/exportar/modelo", async (_req: Request, res: Response) => {
+router.get("/exportar/modelo", async (req: Request, res: Response) => {
   try {
     const wb = new ExcelJS.Workbook();
     wb.creator = "Controle de Ponto";
 
+    const empresaId = req.empresaId;
+    const conditions = [eq(funcionariosTable.ativo, true)];
+    if (empresaId) {
+      conditions.push(eq(funcionariosTable.empresa_id, empresaId));
+    }
     const funcionariosAtivos = await db
       .select()
       .from(funcionariosTable)
-      .where(eq(funcionariosTable.ativo, true));
+      .where(conditions.length === 1 ? conditions[0] : and(...conditions));
 
     const funcWs = wb.addWorksheet("Funcionários");
     funcWs.columns = [
@@ -168,12 +174,9 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
   try {
     const { id } = ExportarFolhaParams.parse({ id: Number(req.params.id) });
     const { mes } = ExportarFolhaQueryParams.parse(req.query);
+    const empresaId = req.empresaId;
 
-    const [funcionario] = await db
-      .select()
-      .from(funcionariosTable)
-      .where(eq(funcionariosTable.id, id));
-
+    const funcionario = await loadOwnedFuncionario(id, empresaId);
     if (!funcionario) {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
@@ -300,12 +303,9 @@ router.post("/importar", async (req: Request, res: Response) => {
     const query = ImportarExcelQueryParams.parse(req.query);
     const funcionarioId = Number(query.funcionario_id);
     const mes = query.mes as string;
+    const empresaId = req.empresaId;
 
-    const [funcionario] = await db
-      .select()
-      .from(funcionariosTable)
-      .where(eq(funcionariosTable.id, funcionarioId));
-
+    const funcionario = await loadOwnedFuncionario(funcionarioId, empresaId);
     if (!funcionario) {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
@@ -420,6 +420,7 @@ router.post("/importar", async (req: Request, res: Response) => {
         );
 
       const dataToSave = {
+        empresa_id: funcionario.empresa_id ?? empresaId ?? null,
         funcionario_id: funcionarioId,
         data: dataStr,
         entrada,

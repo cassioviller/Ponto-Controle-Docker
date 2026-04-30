@@ -52,10 +52,25 @@ lib/
 
 ## Multi-Tenant Architecture
 
-- Header-based tenant isolation (`X-Empresa-Id` header on every API call)
-- `EmpresaContext` in frontend sets the company ID via `setEmpresaId()` in custom-fetch
-- `tenantMiddleware` on Express extracts `req.empresaId` and filters all queries
+- JWT-based authentication (Bearer token in `Authorization` header), token stored in `localStorage`
+- `tenantMiddleware` on Express derives `req.empresaId` from the JWT for tenant admins; for `super_admin` it falls back to the `X-Empresa-Id` header (used as a tenant switcher)
+- `AuthContext` in the frontend handles login/logout, attaches the JWT via `setAuthTokenGetter`, and sets the active empresa via `setEmpresaId` (custom-fetch in `@workspace/api-client-react`)
+- `EmpresaContext` is a thin compatibility shim around `AuthContext`
 - Default empresa (id=1) created by seed; existing rows migrated automatically
+
+## Authentication & Roles
+
+- Two roles in `usuarios.role`:
+  - `super_admin` — `empresa_id IS NULL`, manages tenants and admin users at `/super-admin`. Can call `POST/GET/PUT /api/admin/empresas` and `POST/GET/PUT /api/admin/usuarios`.
+  - `admin` — scoped to one `empresa_id`, sees only their own data. Cannot create empresas or other users.
+- `usuarios.empresa_id` is nullable so the super admin row has no empresa.
+- Endpoints:
+  - `POST /api/auth/login` — body `{ email, senha, empresa_slug? }`. Returns `{ token, usuario, empresa }`.
+  - `GET /api/auth/me` — returns the current session user.
+  - `/api/admin/*` — super-admin only.
+  - All other `/api/*` routes (except `/healthz` and `/auth/*`) require auth.
+- `JWT_SECRET` env var is required in production. In development a fixed insecure default is used.
+- Seed creates a super admin (`super@admin.com` / `super123`, configurable via `SUPER_ADMIN_EMAIL` and `SUPER_ADMIN_SENHA`) and a demo tenant admin (`admin@demo.com` / `admin123`).
 
 ## Database
 

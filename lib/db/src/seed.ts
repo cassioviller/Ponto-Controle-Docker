@@ -1,6 +1,7 @@
+import bcrypt from "bcryptjs";
 import { db, pool } from "./index";
 import { funcionariosTable, registrosPontoTable, empresasTable, usuariosTable } from "./schema";
-import { eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 const FUNCIONARIOS_SEED = [
   { codigo: 1,  nome: "ARIEL RIBEIRO",                   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
@@ -142,6 +143,27 @@ async function seedRegistros(funcionarioId: number, empresaId: number, jornadaMi
 export async function runSeed(): Promise<void> {
   let empresaId: number;
 
+  const superAdminEmail = process.env["SUPER_ADMIN_EMAIL"] ?? "super@admin.com";
+  const superAdminSenha = process.env["SUPER_ADMIN_SENHA"] ?? "super123";
+
+  const [existingSuper] = await db
+    .select()
+    .from(usuariosTable)
+    .where(and(isNull(usuariosTable.empresa_id), eq(usuariosTable.email, superAdminEmail)));
+
+  if (!existingSuper) {
+    console.log(`[seed] Creating super admin (${superAdminEmail})...`);
+    const senhaHash = await bcrypt.hash(superAdminSenha, 10);
+    await db.insert(usuariosTable).values({
+      empresa_id: null,
+      nome: "Super Administrador",
+      email: superAdminEmail,
+      senha_hash: senhaHash,
+      role: "super_admin",
+      ativo: true,
+    });
+  }
+
   const existingEmpresas = await db.select().from(empresasTable);
   if (existingEmpresas.length === 0) {
     console.log("[seed] Creating default empresa...");
@@ -153,17 +175,32 @@ export async function runSeed(): Promise<void> {
     }).returning();
     empresaId = empresa!.id;
 
-    console.log("[seed] Creating default admin user...");
+    console.log("[seed] Creating default admin user (admin@demo.com / admin123)...");
+    const adminHash = await bcrypt.hash("admin123", 10);
     await db.insert(usuariosTable).values({
       empresa_id: empresaId,
       nome: "Administrador",
       email: "admin@demo.com",
-      senha_hash: "$2b$10$demo_hash_placeholder",
+      senha_hash: adminHash,
       role: "admin",
       ativo: true,
     });
   } else {
     empresaId = existingEmpresas[0]!.id;
+
+    const [demoAdmin] = await db
+      .select()
+      .from(usuariosTable)
+      .where(and(eq(usuariosTable.empresa_id, empresaId), eq(usuariosTable.email, "admin@demo.com")));
+
+    if (demoAdmin && demoAdmin.senha_hash.startsWith("$2b$10$demo_hash_placeholder")) {
+      console.log("[seed] Re-hashing demo admin password...");
+      const adminHash = await bcrypt.hash("admin123", 10);
+      await db
+        .update(usuariosTable)
+        .set({ senha_hash: adminHash })
+        .where(eq(usuariosTable.id, demoAdmin.id));
+    }
   }
 
   const existing = await db.select().from(funcionariosTable);

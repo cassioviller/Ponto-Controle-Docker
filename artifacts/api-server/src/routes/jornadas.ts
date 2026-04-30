@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { jornadasPadraoTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
+import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
 const router = Router();
 
@@ -12,6 +13,14 @@ function errMsg(err: unknown): string {
 router.get("/funcionarios/:id/jornadas", async (req, res) => {
   try {
     const funcionarioId = parseInt(req.params.id ?? "0", 10);
+    const empresaId = req.empresaId;
+
+    const funcionario = await loadOwnedFuncionario(funcionarioId, empresaId);
+    if (!funcionario) {
+      res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
+
     const rows = await db
       .select()
       .from(jornadasPadraoTable)
@@ -25,9 +34,17 @@ router.get("/funcionarios/:id/jornadas", async (req, res) => {
 router.put("/funcionarios/:id/jornadas", async (req, res) => {
   try {
     const funcionarioId = parseInt(req.params.id ?? "0", 10);
+    const empresaId = req.empresaId;
+
+    const funcionario = await loadOwnedFuncionario(funcionarioId, empresaId);
+    if (!funcionario) {
+      res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
+
     const jornadas: Array<{
       dia_semana: number;
-      empresa_id: number;
+      empresa_id?: number;
       entrada_padrao?: string | null;
       saida_padrao?: string | null;
       intervalo_padrao?: string | null;
@@ -38,6 +55,10 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
       res.status(400).json({ error: "Body deve ser um array de jornadas" });
       return;
     }
+
+    // Always derive the jornada's empresa from the (already-tenant-scoped)
+    // funcionario rather than trusting any client-supplied value.
+    const jornadaEmpresaId = funcionario.empresa_id;
 
     const result = [];
     for (const j of jornadas) {
@@ -64,11 +85,15 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
           .returning();
         result.push(updated);
       } else {
+        if (jornadaEmpresaId == null) {
+          res.status(400).json({ error: "Funcionário sem empresa associada — não é possível criar jornada" });
+          return;
+        }
         const [inserted] = await db
           .insert(jornadasPadraoTable)
           .values({
             funcionario_id: funcionarioId,
-            empresa_id: j.empresa_id,
+            empresa_id: jornadaEmpresaId,
             dia_semana: j.dia_semana,
             entrada_padrao: j.entrada_padrao ?? null,
             saida_padrao: j.saida_padrao ?? null,

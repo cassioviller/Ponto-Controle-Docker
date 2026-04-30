@@ -26,6 +26,7 @@ import {
   isDomFeriado,
   timeToMinutes,
 } from "../lib/timeUtils";
+import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
 const router = Router();
 
@@ -74,16 +75,9 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
     const { mes } = GetRegistrosFuncionarioQueryParams.parse(req.query);
     const empresaId = req.empresaId;
 
-    const funcionarioQuery = db.select().from(funcionariosTable).where(eq(funcionariosTable.id, id));
-    const [funcionario] = await funcionarioQuery;
-
+    const funcionario = await loadOwnedFuncionario(id, empresaId);
     if (!funcionario) {
       res.status(404).json({ error: "Funcionário não encontrado" });
-      return;
-    }
-
-    if (empresaId && funcionario.empresa_id && funcionario.empresa_id !== empresaId) {
-      res.status(403).json({ error: "Acesso negado" });
       return;
     }
 
@@ -194,12 +188,13 @@ router.post("/registros", async (req, res) => {
     const body = UpsertRegistroBody.parse(req.body);
     const empresaId = req.empresaId ?? undefined;
 
-    const [funcionario] = await db
-      .select()
-      .from(funcionariosTable)
-      .where(eq(funcionariosTable.id, body.funcionario_id));
+    const funcionario = await loadOwnedFuncionario(body.funcionario_id, empresaId);
+    if (!funcionario) {
+      res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
 
-    const jornadaDiaria = funcionario?.jornada_diaria ?? "08:00";
+    const jornadaDiaria = funcionario.jornada_diaria ?? "08:00";
 
     const jornadaDia = await getJornadaDia(body.funcionario_id, body.data);
     const feriadoEmpresa = await isFeriadoEmpresa(empresaId, body.data);
@@ -256,7 +251,7 @@ router.post("/registros", async (req, res) => {
       );
 
     const dataToSave = {
-      empresa_id: empresaId ?? funcionario?.empresa_id ?? null,
+      empresa_id: funcionario.empresa_id ?? empresaId ?? null,
       funcionario_id: body.funcionario_id,
       data: body.data,
       entrada: body.entrada ?? null,
@@ -298,11 +293,7 @@ router.post("/ponto/bater", async (req, res) => {
     const data = getCurrentDateStr();
     const empresaId = req.empresaId ?? undefined;
 
-    const [funcionario] = await db
-      .select()
-      .from(funcionariosTable)
-      .where(eq(funcionariosTable.id, body.funcionario_id));
-
+    const funcionario = await loadOwnedFuncionario(body.funcionario_id, empresaId);
     if (!funcionario) {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
@@ -367,8 +358,8 @@ router.post("/ponto/bater", async (req, res) => {
     } else {
       const insertData =
         body.tipo === "entrada"
-          ? { empresa_id: empresaId ?? funcionario.empresa_id ?? null, funcionario_id: body.funcionario_id, data, entrada: horario }
-          : { empresa_id: empresaId ?? funcionario.empresa_id ?? null, funcionario_id: body.funcionario_id, data, saida: horario };
+          ? { empresa_id: funcionario.empresa_id ?? empresaId ?? null, funcionario_id: body.funcionario_id, data, entrada: horario }
+          : { empresa_id: funcionario.empresa_id ?? empresaId ?? null, funcionario_id: body.funcionario_id, data, saida: horario };
 
       [row] = await db
         .insert(registrosPontoTable)

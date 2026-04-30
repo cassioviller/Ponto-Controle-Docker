@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS empresas (
 
 CREATE TABLE IF NOT EXISTS usuarios (
   id SERIAL PRIMARY KEY,
-  empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  empresa_id INTEGER REFERENCES empresas(id) ON DELETE CASCADE,
   nome TEXT NOT NULL,
   email TEXT NOT NULL,
   senha_hash TEXT NOT NULL,
@@ -89,6 +89,10 @@ CREATE INDEX IF NOT EXISTS idx_funcionarios_empresa ON funcionarios (empresa_id)
 CREATE INDEX IF NOT EXISTS idx_registros_ponto_empresa ON registros_ponto (empresa_id);
 
 CREATE INDEX IF NOT EXISTS idx_jornadas_padrao_func ON jornadas_padrao (funcionario_id);
+
+ALTER TABLE usuarios ALTER COLUMN empresa_id DROP NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS usuarios_super_admin_email_unique ON usuarios (email) WHERE empresa_id IS NULL;
 `;
 
 export async function runDbInit(): Promise<void> {

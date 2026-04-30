@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { formatMes, getCurrentMes, getMonthOptions, baseUrl } from "@/lib/utils";
+import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile } from "@/lib/utils";
 import type { ResumoFuncionario } from "@workspace/api-client-react";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
@@ -48,7 +48,9 @@ export default function Resumo() {
   const rows = resumo as ResumoFuncionario[] | undefined;
 
   function handleDownloadModelo() {
-    window.open(`${baseUrl()}/api/exportar/modelo`, "_blank");
+    downloadAuthenticatedFile("/api/exportar/modelo", "modelo_controle_ponto.xlsx").catch((e) => {
+      alert(e instanceof Error ? e.message : String(e));
+    });
   }
 
   function openImportModal(funcionarioId: number, nome: string) {
@@ -68,7 +70,7 @@ export default function Resumo() {
         `${baseUrl()}/api/importar?funcionario_id=${importModal.funcionarioId}&mes=${importMes}`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/octet-stream" },
+          headers: authHeaders({ "Content-Type": "application/octet-stream" }),
           body: buf,
         },
       );

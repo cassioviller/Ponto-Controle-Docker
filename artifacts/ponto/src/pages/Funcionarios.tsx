@@ -15,7 +15,7 @@ import type {
   CreateFuncionarioBodySituacao,
 } from "@workspace/api-client-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
-import { baseUrl } from "@/lib/utils";
+import { baseUrl, authHeaders } from "@/lib/utils";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
 const SITUACOES = ["Ativo", "Demitido", "Aviso", "Ferias"];
@@ -94,7 +94,7 @@ export default function Funcionarios() {
     try {
       const base = baseUrl();
       const resp = await fetch(`${base}/api/funcionarios/${funcionarioId}/jornadas`, {
-        headers: empresa ? { "x-empresa-id": String(empresa.id) } : {},
+        headers: authHeaders(),
       });
       if (resp.ok) {
         const data = await resp.json() as Array<{
@@ -164,10 +164,7 @@ export default function Funcionarios() {
     const base = baseUrl();
     await fetch(`${base}/api/funcionarios/${funcionarioId}/jornadas`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...(empresa ? { "x-empresa-id": String(empresa.id) } : {}),
-      },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(
         jornadas.map((j) => ({
           dia_semana: j.dia_semana,
