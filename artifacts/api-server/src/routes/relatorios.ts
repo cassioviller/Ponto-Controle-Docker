@@ -90,6 +90,11 @@ router.get("/consolidado", async (req, res) => {
       const diasTrabalhados = mesRegistros
         .filter((r) => r.funcionario_id === f.id && r.entrada && r.saida)
         .length;
+      const horasJustMin = regs.reduce((acc, r) => {
+        const [h, m] = (r.horas_justificadas ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const diasJustificados = regs.filter((r) => r.justificativa === "justificada").length;
 
       return {
         funcionario_id: f.id,
@@ -101,10 +106,12 @@ router.get("/consolidado", async (req, res) => {
         faltas,
         dias_trabalhados: diasTrabalhados,
         dom_feriados: domFeriadosFunc,
+        horas_justificadas: minutesToTime(horasJustMin),
+        dias_justificados: diasJustificados,
       };
     });
 
-    const sumHHMM = (items: typeof linhas, field: "total_horas" | "he_60" | "he_100" | "atrasos") =>
+    const sumHHMM = (items: typeof linhas, field: "total_horas" | "he_60" | "he_100" | "atrasos" | "horas_justificadas") =>
       minutesToTime(items.reduce((acc, l) => {
         const [h, m] = l[field].split(":").map(Number);
         return acc + (h ?? 0) * 60 + (m ?? 0);
@@ -120,6 +127,8 @@ router.get("/consolidado", async (req, res) => {
       faltas: linhas.reduce((acc, l) => acc + l.faltas, 0),
       dias_trabalhados: linhas.reduce((acc, l) => acc + l.dias_trabalhados, 0),
       dom_feriados: linhas.reduce((acc, l) => acc + l.dom_feriados, 0),
+      horas_justificadas: sumHHMM(linhas, "horas_justificadas"),
+      dias_justificados: linhas.reduce((acc, l) => acc + l.dias_justificados, 0),
     };
 
     res.json({ mes, linhas, total_geral: totalGeral });
@@ -184,6 +193,11 @@ router.get("/resumo", async (req, res) => {
       const faltasDia = regs.reduce((acc, r) => acc + parseFloat(r.faltas ?? "0"), 0);
       const jornadaMinFuncionario = timeToMinutes(f.jornada_diaria) || 480;
       const faltasHorasMin = Math.round(faltasDia * jornadaMinFuncionario);
+      const horasJustMin = regs.reduce((acc, r) => {
+        const [h, m] = (r.horas_justificadas ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const diasJustificados = regs.filter((r) => r.justificativa === "justificada").length;
 
       return {
         id: f.id,
@@ -199,6 +213,8 @@ router.get("/resumo", async (req, res) => {
         faltas_horas: minutesToTime(faltasHorasMin),
         he_60: minutesToTime(he60Min),
         he_100: minutesToTime(he100Min),
+        horas_justificadas: minutesToTime(horasJustMin),
+        dias_justificados: diasJustificados,
       };
     });
 

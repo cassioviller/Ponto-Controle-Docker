@@ -89,7 +89,10 @@ export interface CalcResult {
   atrasos: string | null;
   faltas: string;
   intervalo_used: string | null;
+  horas_justificadas: string | null;
 }
+
+export type Justificativa = "nenhuma" | "justificada" | "injustificada";
 
 export function calcFromJornada(
   entrada: string | null | undefined,
@@ -97,17 +100,40 @@ export function calcFromJornada(
   intervalo: string | null | undefined,
   jornada: JornadaDia | null | undefined,
   dateStr: string,
+  justificativa: Justificativa | null | undefined = "nenhuma",
+  jornadaDiariaFallback: string | null | undefined = null,
 ): CalcResult {
   const isFeriado = isDomFeriado(dateStr);
   const isFolga = isFeriado || (jornada?.is_folga ?? false);
 
   const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
 
+  const fallbackMin = timeToMinutes(jornadaDiariaFallback) || 480;
+  const jornadaMinFromDay = jornada && jornada.entrada_padrao && jornada.saida_padrao
+    ? calcJornadaNetMin(jornada)
+    : fallbackMin;
+
+  if (justificativa === "justificada") {
+    const trabalhadasMin = entrada && saida
+      ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+      : 0;
+    const horasJustMin = Math.max(jornadaMinFromDay - trabalhadasMin, 0);
+    return {
+      total_horas: minutesToTime(jornadaMinFromDay),
+      he_60: "00:00",
+      he_100: "00:00",
+      atrasos: "00:00",
+      faltas: "0",
+      intervalo_used: intervaloUsed,
+      horas_justificadas: minutesToTime(horasJustMin),
+    };
+  }
+
   if (!entrada || !saida) {
     if (isFolga) {
-      return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "0", intervalo_used: intervaloUsed };
+      return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: null };
     }
-    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "1", intervalo_used: intervaloUsed };
+    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "1", intervalo_used: intervaloUsed, horas_justificadas: null };
   }
 
   const entradaMin = timeToMinutes(entrada);
@@ -124,12 +150,11 @@ export function calcFromJornada(
       atrasos: "00:00",
       faltas: "0",
       intervalo_used: intervaloUsed,
+      horas_justificadas: null,
     };
   }
 
-  const jornadaMin = jornada
-    ? timeToMinutes(`${timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao)}`.replace(/^-/, "00")) || calcJornadaNetMin(jornada)
-    : 480;
+  const jornadaMin = jornadaMinFromDay;
 
   let atrasoMin = 0;
   if (jornada?.entrada_padrao && entrada > jornada.entrada_padrao) {
@@ -149,6 +174,7 @@ export function calcFromJornada(
     atrasos: minutesToTime(Math.max(atrasosMin, 0)),
     faltas: "0",
     intervalo_used: intervaloUsed,
+    horas_justificadas: null,
   };
 }
 

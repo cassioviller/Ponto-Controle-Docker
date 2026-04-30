@@ -77,18 +77,47 @@ function isoToBrDate(iso: string | null | undefined): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
+type Justificativa = "nenhuma" | "justificada" | "injustificada";
+
+function jornadaNetMin(jornada: JornadaPadrao, jornadaDiariaFallback?: string | null): number {
+  if (jornada?.entrada_padrao && jornada?.saida_padrao) {
+    const net = timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao);
+    if (net > 0) return net;
+  }
+  return timeToMinutes(jornadaDiariaFallback ?? null) || 480;
+}
+
 function autoCalculate(
   entrada: string | null | undefined,
   saida: string | null | undefined,
   intervalo: string | null | undefined,
   jornada: JornadaPadrao,
   dateStr: string,
-): { total_horas: string | null; he_60: string | null; he_100: string | null; atrasos: string | null; faltas: string; intervalo_used: string | null } {
+  justificativa: Justificativa = "nenhuma",
+  jornadaDiariaFallback: string | null = null,
+): { total_horas: string | null; he_60: string | null; he_100: string | null; atrasos: string | null; faltas: string; intervalo_used: string | null; horas_justificadas: string | null } {
   const isFolga = isDomFeriado(dateStr) || (jornada?.is_folga ?? false);
   const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
 
+  if (justificativa === "justificada") {
+    const jornadaMin = jornadaNetMin(jornada, jornadaDiariaFallback);
+    const trabalhadasMin = entrada && saida
+      ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+      : 0;
+    const horasJustMin = Math.max(jornadaMin - trabalhadasMin, 0);
+    return {
+      total_horas: minutesToTime(jornadaMin),
+      he_60: "00:00",
+      he_100: "00:00",
+      atrasos: "00:00",
+      faltas: "0",
+      intervalo_used: intervaloUsed,
+      horas_justificadas: minutesToTime(horasJustMin),
+    };
+  }
+
   if (!entrada || !saida) {
-    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: isFolga ? "0" : "1", intervalo_used: intervaloUsed };
+    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: isFolga ? "0" : "1", intervalo_used: intervaloUsed, horas_justificadas: null };
   }
 
   const entradaMin = timeToMinutes(entrada);
@@ -98,14 +127,10 @@ function autoCalculate(
   if (totalMin < 0) totalMin = 0;
 
   if (isFolga) {
-    return { total_horas: minutesToTime(totalMin), he_60: "00:00", he_100: minutesToTime(totalMin), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed };
+    return { total_horas: minutesToTime(totalMin), he_60: "00:00", he_100: minutesToTime(totalMin), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: null };
   }
 
-  let jornadaMin = 480;
-  if (jornada?.entrada_padrao && jornada?.saida_padrao) {
-    const net = timeToMinutes(jornada.saida_padrao) - timeToMinutes(jornada.entrada_padrao) - timeToMinutes(jornada.intervalo_padrao);
-    if (net > 0) jornadaMin = net;
-  }
+  const jornadaMin = jornadaNetMin(jornada, jornadaDiariaFallback);
 
   const extraMin = Math.max(totalMin - jornadaMin, 0);
   const he60Min = Math.min(extraMin, 120);
@@ -119,6 +144,7 @@ function autoCalculate(
     atrasos: minutesToTime(atrasosMin),
     faltas: "0",
     intervalo_used: intervaloUsed,
+    horas_justificadas: null,
   };
 }
 
@@ -177,6 +203,8 @@ export default function FolhaIndividual() {
           intervaloDerivado,
           prev.jornada_padrao ?? null,
           prev.data,
+          (prev.justificativa as Justificativa | undefined) ?? "nenhuma",
+          folha?.funcionario?.jornada_diaria ?? null,
         );
         return {
           ...updated,
@@ -185,11 +213,38 @@ export default function FolhaIndividual() {
           he_100: calc.he_100,
           atrasos: calc.atrasos,
           faltas: calc.faltas,
+          horas_justificadas: calc.horas_justificadas,
           intervalo: intervaloDerivado,
         };
       }
 
       return updated;
+    });
+  }
+
+  function handleJustificativaChange(value: Justificativa) {
+    setEditingRow((prev) => {
+      if (!prev) return null;
+      const intervaloDerivado = deriveIntervalo(prev.saida_almoco ?? null, prev.volta_almoco ?? null) ?? prev.intervalo ?? null;
+      const calc = autoCalculate(
+        prev.entrada,
+        prev.saida,
+        intervaloDerivado,
+        prev.jornada_padrao ?? null,
+        prev.data,
+        value,
+        folha?.funcionario?.jornada_diaria ?? null,
+      );
+      return {
+        ...prev,
+        justificativa: value,
+        total_horas: calc.total_horas,
+        he_60: calc.he_60,
+        he_100: calc.he_100,
+        atrasos: calc.atrasos,
+        faltas: calc.faltas,
+        horas_justificadas: calc.horas_justificadas,
+      };
     });
   }
 
@@ -211,6 +266,7 @@ export default function FolhaIndividual() {
           atrasos: editingRow.atrasos ?? null,
           faltas: editingRow.faltas ?? null,
           observacoes: editingRow.observacoes ?? null,
+          justificativa: ((editingRow.justificativa as Justificativa | undefined) ?? "nenhuma"),
         },
       });
       await qc.invalidateQueries({
@@ -260,6 +316,8 @@ export default function FolhaIndividual() {
         { label: "HE 100%", value: folha.resumo.he_100, color: "text-orange-600" },
         { label: "Atrasos", value: folha.resumo.atrasos, color: "text-yellow-600" },
         { label: "Faltas (dias)", value: folha.resumo.faltas_dia.toString(), color: "text-red-600" },
+        { label: "Hrs Just.", value: folha.resumo.horas_justificadas ?? "00:00", color: "text-blue-600" },
+        { label: "Dias Just.", value: (folha.resumo.dias_justificados ?? 0).toString(), color: "text-blue-500" },
         { label: "Dias Trab.", value: folha.resumo.dias_trabalhados.toString(), color: "text-green-700" },
         { label: "Dom/Fer.", value: folha.resumo.dom_feriados.toString(), color: "text-gray-500" },
       ]
@@ -337,6 +395,8 @@ export default function FolhaIndividual() {
                 <th className="px-3 py-2.5 text-center font-semibold">HE 100%</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Atrasos</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Justif.</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Hrs Just.</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Observações</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ed.</th>
               </tr>
@@ -344,7 +404,7 @@ export default function FolhaIndividual() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-gray-400">
+                  <td colSpan={14} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
@@ -396,6 +456,18 @@ export default function FolhaIndividual() {
                       ) : (
                         <span className="text-gray-300">0</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-center text-xs">
+                      {reg.justificativa === "justificada" ? (
+                        <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Just.</span>
+                      ) : reg.justificativa === "injustificada" ? (
+                        <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Injust.</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-center font-mono text-sm">
+                      {reg.horas_justificadas ? <span className="text-blue-600">{reg.horas_justificadas}</span> : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-500 max-w-[160px] truncate">
                       {reg.observacoes || ""}
@@ -474,6 +546,26 @@ export default function FolhaIndividual() {
                   <option value="0.5">Meio dia</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Justificativa</label>
+                <select
+                  value={(editingRow.justificativa as Justificativa | undefined) ?? "nenhuma"}
+                  onChange={(e) => handleJustificativaChange(e.target.value as Justificativa)}
+                  className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                >
+                  <option value="nenhuma">Nenhuma</option>
+                  <option value="justificada">Justificada (não desconta)</option>
+                  <option value="injustificada">Injustificada (desconta)</option>
+                </select>
+              </div>
+              {editingRow.justificativa === "justificada" && (
+                <div className="col-span-2 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-xs text-blue-700">
+                  Falta/atraso justificado: total = jornada cheia, atrasos e HE zerados.
+                  {editingRow.horas_justificadas && (
+                    <> Horas justificadas: <span className="font-mono font-bold">{editingRow.horas_justificadas}</span></>
+                  )}
+                </div>
+              )}
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Observações (atestado, viagem, ausência autorizada, etc.)

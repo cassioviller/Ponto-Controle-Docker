@@ -282,6 +282,10 @@ export const GetRegistrosFuncionarioResponse = zod.object({
       atrasos: zod.string().nullish(),
       faltas: zod.string().nullish(),
       observacoes: zod.string().nullish(),
+      justificativa: zod
+        .enum(["nenhuma", "justificada", "injustificada"])
+        .optional(),
+      horas_justificadas: zod.string().nullish(),
     }),
   ),
   resumo: zod.object({
@@ -293,6 +297,8 @@ export const GetRegistrosFuncionarioResponse = zod.object({
     faltas_horas: zod.string(),
     dias_trabalhados: zod.number(),
     dom_feriados: zod.number(),
+    horas_justificadas: zod.string(),
+    dias_justificados: zod.number(),
   }),
 });
 
@@ -312,6 +318,9 @@ export const UpsertRegistroBody = zod.object({
   atrasos: zod.string().nullish(),
   faltas: zod.string().nullish(),
   observacoes: zod.string().nullish(),
+  justificativa: zod
+    .enum(["nenhuma", "justificada", "injustificada"])
+    .optional(),
 });
 
 export const UpsertRegistroResponse = zod.object({
@@ -329,6 +338,10 @@ export const UpsertRegistroResponse = zod.object({
   atrasos: zod.string().nullish(),
   faltas: zod.string().nullish(),
   observacoes: zod.string().nullish(),
+  justificativa: zod
+    .enum(["nenhuma", "justificada", "injustificada"])
+    .optional(),
+  horas_justificadas: zod.string().nullish(),
 });
 
 /**
@@ -359,6 +372,10 @@ export const BaterPontoResponse = zod.object({
     atrasos: zod.string().nullish(),
     faltas: zod.string().nullish(),
     observacoes: zod.string().nullish(),
+    justificativa: zod
+      .enum(["nenhuma", "justificada", "injustificada"])
+      .optional(),
+    horas_justificadas: zod.string().nullish(),
   }),
 });
 
@@ -382,6 +399,8 @@ export const GetConsolidadoResponse = zod.object({
       faltas: zod.number(),
       dias_trabalhados: zod.number(),
       dom_feriados: zod.number(),
+      horas_justificadas: zod.string(),
+      dias_justificados: zod.number(),
     }),
   ),
   total_geral: zod.object({
@@ -394,6 +413,8 @@ export const GetConsolidadoResponse = zod.object({
     faltas: zod.number(),
     dias_trabalhados: zod.number(),
     dom_feriados: zod.number(),
+    horas_justificadas: zod.string(),
+    dias_justificados: zod.number(),
   }),
 });
 
@@ -420,6 +441,8 @@ export const GetResumoResponseItem = zod.object({
   faltas_horas: zod.string(),
   he_60: zod.string(),
   he_100: zod.string(),
+  horas_justificadas: zod.string(),
+  dias_justificados: zod.number(),
 });
 export const GetResumoResponse = zod.array(GetResumoResponseItem);
 

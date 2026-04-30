@@ -4,6 +4,8 @@ import { db } from "@workspace/db";
 import {
   registrosPontoTable,
   funcionariosTable,
+  jornadasPadraoTable,
+  feriadosTable,
 } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import {
@@ -15,8 +17,10 @@ import {
   parseMes,
   getDaysInMonth,
   getDiaSemana,
+  getDiaSemanaNum,
   calcTotalHoras,
   calcHEAndAtrasos,
+  calcFromJornada,
   deriveIntervalo,
   isoToBrDate,
   brToIsoDate,
@@ -351,6 +355,19 @@ router.post("/importar", async (req: Request, res: Response) => {
     const erros: string[] = [];
     let importados = 0;
 
+    const jornadasRows = await db
+      .select()
+      .from(jornadasPadraoTable)
+      .where(eq(jornadasPadraoTable.funcionario_id, funcionarioId));
+    const jornadaByDow = new Map<number, typeof jornadasRows[number]>();
+    for (const j of jornadasRows) jornadaByDow.set(j.dia_semana, j);
+
+    const feriadoEmpresaId = empresaId ?? funcionario.empresa_id ?? null;
+    const feriadoRows = feriadoEmpresaId !== null
+      ? await db.select().from(feriadosTable).where(eq(feriadosTable.empresa_id, feriadoEmpresaId))
+      : [];
+    const feriadoSet = new Set<string>(feriadoRows.map((f) => String(f.data)));
+
     const headerRow = ws.getRow(1);
     const headerCol5 = String(headerRow.getCell(5).value ?? "").trim().toLowerCase();
     const headerCol6 = String(headerRow.getCell(6).value ?? "").trim().toLowerCase();
@@ -473,6 +490,50 @@ router.post("/importar", async (req: Request, res: Response) => {
           ),
         );
 
+      const existingJustificativa = (existing[0]?.justificativa ?? "nenhuma") as
+        | "nenhuma"
+        | "justificada"
+        | "injustificada";
+
+      let finalTotalHoras: string | null = total_horas;
+      let finalHe60: string | null = he60 ?? autoHE.he_60;
+      let finalHe100: string | null = he100 ?? autoHE.he_100;
+      let finalAtrasos: string | null = atrasos ?? autoHE.atrasos;
+      let finalFaltas: string | null = faltas;
+      let finalHorasJust: string | null = null;
+
+      if (existingJustificativa === "justificada") {
+        const dow = getDiaSemanaNum(dataStr);
+        const jornadaDoDia = jornadaByDow.get(dow);
+        const isFeriadoEmp = feriadoSet.has(dataStr);
+        const jornadaInfo = jornadaDoDia ? {
+          entrada_padrao: jornadaDoDia.entrada_padrao,
+          saida_padrao: jornadaDoDia.saida_padrao,
+          intervalo_padrao: jornadaDoDia.intervalo_padrao,
+          is_folga: jornadaDoDia.is_folga || isFeriadoEmp,
+        } : (isFeriadoEmp ? {
+          entrada_padrao: null,
+          saida_padrao: null,
+          intervalo_padrao: null,
+          is_folga: true as boolean,
+        } : null);
+        const calc = calcFromJornada(
+          entrada,
+          saida,
+          intervalo,
+          jornadaInfo,
+          dataStr,
+          "justificada",
+          funcionario.jornada_diaria,
+        );
+        finalTotalHoras = calc.total_horas;
+        finalHe60 = calc.he_60;
+        finalHe100 = calc.he_100;
+        finalAtrasos = calc.atrasos;
+        finalFaltas = calc.faltas;
+        finalHorasJust = calc.horas_justificadas;
+      }
+
       const dataToSave = {
         empresa_id: funcionario.empresa_id ?? empresaId ?? null,
         funcionario_id: funcionarioId,
@@ -482,12 +543,14 @@ router.post("/importar", async (req: Request, res: Response) => {
         saida_almoco: saidaAlmoco,
         volta_almoco: voltaAlmoco,
         intervalo,
-        total_horas,
-        he_60: he60 ?? autoHE.he_60,
-        he_100: he100 ?? autoHE.he_100,
-        atrasos: atrasos ?? autoHE.atrasos,
-        faltas,
+        total_horas: finalTotalHoras,
+        he_60: finalHe60,
+        he_100: finalHe100,
+        atrasos: finalAtrasos,
+        faltas: finalFaltas,
         observacoes,
+        justificativa: existingJustificativa,
+        horas_justificadas: finalHorasJust,
         atualizado_em: new Date(),
       };
 

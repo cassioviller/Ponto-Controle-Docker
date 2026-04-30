@@ -696,6 +696,12 @@ components:
         observacoes:
           type: string
           nullable: true
+        justificativa:
+          type: string
+          enum: [nenhuma, justificada, injustificada]
+        horas_justificadas:
+          type: string
+          nullable: true
       required:
         - id
         - funcionario_id
@@ -738,6 +744,9 @@ components:
         observacoes:
           type: string
           nullable: true
+        justificativa:
+          type: string
+          enum: [nenhuma, justificada, injustificada]
       required:
         - funcionario_id
         - data
@@ -812,6 +821,10 @@ components:
           type: integer
         dom_feriados:
           type: integer
+        horas_justificadas:
+          type: string
+        dias_justificados:
+          type: integer
       required:
         - total_horas
         - he_60
@@ -821,6 +834,8 @@ components:
         - faltas_horas
         - dias_trabalhados
         - dom_feriados
+        - horas_justificadas
+        - dias_justificados
 
     ConsolidadoLinha:
       type: object
@@ -843,6 +858,10 @@ components:
           type: integer
         dom_feriados:
           type: integer
+        horas_justificadas:
+          type: string
+        dias_justificados:
+          type: integer
       required:
         - funcionario_id
         - nome
@@ -853,6 +872,8 @@ components:
         - faltas
         - dias_trabalhados
         - dom_feriados
+        - horas_justificadas
+        - dias_justificados
 
     Consolidado:
       type: object
@@ -899,6 +920,10 @@ components:
           type: string
         he_100:
           type: string
+        horas_justificadas:
+          type: string
+        dias_justificados:
+          type: integer
       required:
         - id
         - codigo
@@ -913,6 +938,8 @@ components:
         - faltas_horas
         - he_60
         - he_100
+        - horas_justificadas
+        - dias_justificados
 
     ImportacaoResponse:
       type: object

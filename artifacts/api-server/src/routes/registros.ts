@@ -123,6 +123,8 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
         atrasos: reg?.atrasos ?? null,
         faltas: reg?.faltas ?? null,
         observacoes: reg?.observacoes ?? null,
+        justificativa: reg?.justificativa ?? "nenhuma",
+        horas_justificadas: reg?.horas_justificadas ?? null,
         jornada_padrao: jornada ? {
           entrada_padrao: jornada.entrada_padrao,
           saida_padrao: jornada.saida_padrao,
@@ -156,6 +158,15 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       return acc + parseFloat(r.faltas ?? "0");
     }, 0);
 
+    const horasJustificadasMin = mesRegistros.reduce((acc, r) => {
+      const [h, m] = (r.horas_justificadas ?? "00:00").split(":").map(Number);
+      return acc + (h ?? 0) * 60 + (m ?? 0);
+    }, 0);
+
+    const diasJustificados = mesRegistros.filter(
+      (r) => r.justificativa === "justificada",
+    ).length;
+
     const diasTrabalhados = mesRegistros.filter(
       (r) => r.entrada && r.saida,
     ).length;
@@ -173,6 +184,8 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       faltas_horas: minutesToTime(faltasDia * (timeToMinutes(funcionario.jornada_diaria) || 480)),
       dias_trabalhados: diasTrabalhados,
       dom_feriados: domFeriados,
+      horas_justificadas: minutesToTime(horasJustificadasMin),
+      dias_justificados: diasJustificados,
     };
 
     res.json({
@@ -226,32 +239,57 @@ router.post("/registros", async (req, res) => {
     const intervaloFinal =
       intervaloDerivado ?? body.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
 
-    const { total_horas } = calcTotalHoras(body.entrada, body.saida, intervaloFinal);
+    const justificativaRaw = (body.justificativa ?? "nenhuma") as string;
+    const justificativa: "nenhuma" | "justificada" | "injustificada" =
+      justificativaRaw === "justificada" || justificativaRaw === "injustificada"
+        ? justificativaRaw
+        : "nenhuma";
 
+    const jornadaInfoBase = jornadaDia ? {
+      entrada_padrao: jornadaDia.entrada_padrao,
+      saida_padrao: jornadaDia.saida_padrao,
+      intervalo_padrao: jornadaDia.intervalo_padrao,
+      is_folga: jornadaDia.is_folga || feriadoEmpresa,
+    } : (feriadoEmpresa ? {
+      entrada_padrao: null,
+      saida_padrao: null,
+      intervalo_padrao: null,
+      is_folga: true as boolean,
+    } : null);
+
+    let total_horas: string | null;
     let he_60: string | null;
     let he_100: string | null;
     let atrasos: string | null;
     let faltas: string | null;
+    let horas_justificadas: string | null = null;
 
-    if (jornadaDia || feriadoEmpresa) {
-      const jornadaInfo = jornadaDia ? {
-        entrada_padrao: jornadaDia.entrada_padrao,
-        saida_padrao: jornadaDia.saida_padrao,
-        intervalo_padrao: jornadaDia.intervalo_padrao,
-        is_folga: jornadaDia.is_folga || feriadoEmpresa,
-      } : {
-        entrada_padrao: null,
-        saida_padrao: null,
-        intervalo_padrao: null,
-        is_folga: feriadoEmpresa,
-      };
-
-      const calc = calcFromJornada(body.entrada, body.saida, intervaloFinal, jornadaInfo, body.data);
+    if (justificativa === "justificada") {
+      const calc = calcFromJornada(
+        body.entrada,
+        body.saida,
+        intervaloFinal,
+        jornadaInfoBase,
+        body.data,
+        "justificada",
+        jornadaDiaria,
+      );
+      total_horas = calc.total_horas;
+      he_60 = calc.he_60;
+      he_100 = calc.he_100;
+      atrasos = calc.atrasos;
+      faltas = calc.faltas;
+      horas_justificadas = calc.horas_justificadas;
+    } else if (jornadaInfoBase) {
+      const calc = calcFromJornada(body.entrada, body.saida, intervaloFinal, jornadaInfoBase, body.data, justificativa, jornadaDiaria);
+      total_horas = calc.total_horas;
       he_60 = calc.he_60;
       he_100 = calc.he_100;
       atrasos = calc.atrasos;
       faltas = calc.faltas;
     } else {
+      const t = calcTotalHoras(body.entrada, body.saida, intervaloFinal);
+      total_horas = t.total_horas;
       const autoHE = calcHEAndAtrasos(
         body.entrada,
         body.saida,
@@ -275,6 +313,7 @@ router.post("/registros", async (req, res) => {
         ),
       );
 
+    const isJustificada = justificativa === "justificada";
     const dataToSave = {
       empresa_id: funcionario.empresa_id ?? empresaId ?? null,
       funcionario_id: body.funcionario_id,
@@ -285,11 +324,13 @@ router.post("/registros", async (req, res) => {
       volta_almoco: body.volta_almoco ?? null,
       intervalo: intervaloFinal ?? null,
       total_horas: total_horas ?? null,
-      he_60: body.he_60 !== undefined && body.he_60 !== null ? body.he_60 : he_60,
-      he_100: body.he_100 !== undefined && body.he_100 !== null ? body.he_100 : he_100,
-      atrasos: body.atrasos !== undefined && body.atrasos !== null ? body.atrasos : atrasos,
-      faltas: body.faltas !== undefined && body.faltas !== null ? body.faltas : (faltas ?? null),
+      he_60: isJustificada ? he_60 : (body.he_60 !== undefined && body.he_60 !== null ? body.he_60 : he_60),
+      he_100: isJustificada ? he_100 : (body.he_100 !== undefined && body.he_100 !== null ? body.he_100 : he_100),
+      atrasos: isJustificada ? atrasos : (body.atrasos !== undefined && body.atrasos !== null ? body.atrasos : atrasos),
+      faltas: isJustificada ? faltas : (body.faltas !== undefined && body.faltas !== null ? body.faltas : (faltas ?? null)),
       observacoes: body.observacoes ?? null,
+      justificativa,
+      horas_justificadas,
       atualizado_em: new Date(),
     };
 
@@ -348,19 +389,52 @@ router.post("/ponto/bater", async (req, res) => {
         const feriadoEmpresa = await isFeriadoEmpresa(empresaId, data);
         const intervaloFinal = prevReg.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
 
-        let he_60, he_100, atrasos;
-        if (jornadaDia || feriadoEmpresa) {
-          const jornadaInfo = jornadaDia ? {
-            entrada_padrao: jornadaDia.entrada_padrao,
-            saida_padrao: jornadaDia.saida_padrao,
-            intervalo_padrao: jornadaDia.intervalo_padrao,
-            is_folga: jornadaDia.is_folga || feriadoEmpresa,
-          } : { entrada_padrao: null, saida_padrao: null, intervalo_padrao: null, is_folga: feriadoEmpresa };
-          const calc = calcFromJornada(prevReg.entrada, horario, intervaloFinal, jornadaInfo, data);
+        const prevJustificativa = (prevReg.justificativa ?? "nenhuma") as
+          | "nenhuma"
+          | "justificada"
+          | "injustificada";
+
+        const jornadaInfo = jornadaDia ? {
+          entrada_padrao: jornadaDia.entrada_padrao,
+          saida_padrao: jornadaDia.saida_padrao,
+          intervalo_padrao: jornadaDia.intervalo_padrao,
+          is_folga: jornadaDia.is_folga || feriadoEmpresa,
+        } : (feriadoEmpresa ? {
+          entrada_padrao: null,
+          saida_padrao: null,
+          intervalo_padrao: null,
+          is_folga: true as boolean,
+        } : null);
+
+        let total_horas: string | null;
+        let he_60: string | null;
+        let he_100: string | null;
+        let atrasos: string | null;
+        let horas_justificadas: string | null = null;
+
+        if (prevJustificativa === "justificada") {
+          const calc = calcFromJornada(
+            prevReg.entrada,
+            horario,
+            intervaloFinal,
+            jornadaInfo,
+            data,
+            "justificada",
+            funcionario.jornada_diaria,
+          );
+          total_horas = calc.total_horas;
+          he_60 = calc.he_60;
+          he_100 = calc.he_100;
+          atrasos = calc.atrasos;
+          horas_justificadas = calc.horas_justificadas;
+        } else if (jornadaInfo) {
+          const calc = calcFromJornada(prevReg.entrada, horario, intervaloFinal, jornadaInfo, data, prevJustificativa, funcionario.jornada_diaria);
+          total_horas = calc.total_horas;
           he_60 = calc.he_60;
           he_100 = calc.he_100;
           atrasos = calc.atrasos;
         } else {
+          total_horas = calcTotalHoras(prevReg.entrada, horario, intervaloFinal).total_horas;
           const heAuto = calcHEAndAtrasos(prevReg.entrada, horario, intervaloFinal, funcionario.jornada_diaria, data);
           he_60 = heAuto.he_60;
           he_100 = heAuto.he_100;
@@ -370,10 +444,11 @@ router.post("/ponto/bater", async (req, res) => {
         updateFields = {
           saida: horario,
           atualizado_em: new Date(),
-          total_horas: calcTotalHoras(prevReg.entrada, horario, intervaloFinal).total_horas,
-          he_60: he_60 ?? null,
-          he_100: he_100 ?? null,
-          atrasos: atrasos ?? null,
+          total_horas,
+          he_60,
+          he_100,
+          atrasos,
+          horas_justificadas,
         };
       }
 

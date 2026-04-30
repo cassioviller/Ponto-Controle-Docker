@@ -123,6 +123,15 @@ export interface FuncionarioArquivo {
   criado_em: string;
 }
 
+export type RegistroPontoJustificativa =
+  (typeof RegistroPontoJustificativa)[keyof typeof RegistroPontoJustificativa];
+
+export const RegistroPontoJustificativa = {
+  nenhuma: "nenhuma",
+  justificada: "justificada",
+  injustificada: "injustificada",
+} as const;
+
 export interface RegistroPonto {
   id: number;
   funcionario_id: number;
@@ -138,7 +147,18 @@ export interface RegistroPonto {
   atrasos?: string | null;
   faltas?: string | null;
   observacoes?: string | null;
+  justificativa?: RegistroPontoJustificativa;
+  horas_justificadas?: string | null;
 }
+
+export type UpsertRegistroBodyJustificativa =
+  (typeof UpsertRegistroBodyJustificativa)[keyof typeof UpsertRegistroBodyJustificativa];
+
+export const UpsertRegistroBodyJustificativa = {
+  nenhuma: "nenhuma",
+  justificada: "justificada",
+  injustificada: "injustificada",
+} as const;
 
 export interface UpsertRegistroBody {
   funcionario_id: number;
@@ -153,6 +173,7 @@ export interface UpsertRegistroBody {
   atrasos?: string | null;
   faltas?: string | null;
   observacoes?: string | null;
+  justificativa?: UpsertRegistroBodyJustificativa;
 }
 
 export type BaterPontoBodyTipo =
@@ -185,6 +206,8 @@ export interface ResumoMes {
   faltas_horas: string;
   dias_trabalhados: number;
   dom_feriados: number;
+  horas_justificadas: string;
+  dias_justificados: number;
 }
 
 export interface FolhaMensal {
@@ -204,6 +227,8 @@ export interface ConsolidadoLinha {
   faltas: number;
   dias_trabalhados: number;
   dom_feriados: number;
+  horas_justificadas: string;
+  dias_justificados: number;
 }
 
 export interface Consolidado {
@@ -226,6 +251,8 @@ export interface ResumoFuncionario {
   faltas_horas: string;
   he_60: string;
   he_100: string;
+  horas_justificadas: string;
+  dias_justificados: number;
 }
 
 export interface ImportacaoResponse {

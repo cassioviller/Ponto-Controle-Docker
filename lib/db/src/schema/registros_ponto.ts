@@ -23,6 +23,8 @@ export const registrosPontoTable = pgTable("registros_ponto", {
   atrasos: text("atrasos"),
   faltas: numeric("faltas", { precision: 3, scale: 1 }).default("0"),
   observacoes: text("observacoes"),
+  justificativa: text("justificativa").notNull().default("nenhuma"),
+  horas_justificadas: text("horas_justificadas"),
   atualizado_em: timestamp("atualizado_em").notNull().defaultNow(),
 });
 

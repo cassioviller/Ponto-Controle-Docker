@@ -79,7 +79,7 @@ Tables:
 - `usuarios` — admin users per empresa (nome, email, senha_hash, role)
 - `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária; plus optional CLT fields: empresa, data_contrato, salario, endereço, número, bairro, cidade, cep, estado_civil, raca_cor, horário, escolaridade, pis)
 - `funcionario_arquivos` — uploaded documents per employee (funcionario_id FK, nome_arquivo, tipo_arquivo, caminho on disk, criado_em). Files saved under `${UPLOADS_DIR-./uploads}/funcionarios/:id/`.
-- `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, saida_almoco, volta_almoco, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
+- `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, saida_almoco, volta_almoco, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações, justificativa, horas_justificadas)
 - `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, entrada_padrao, saida_padrao, intervalo_padrao, is_folga)
 - `feriados` — holidays per empresa (data, descricao, tipo)
 
@@ -94,6 +94,14 @@ When editing a time record in FolhaIndividual, changing Entrada/Saída/Saída-Al
 - Extra hours beyond jornada: first 2h = HE 60%, rest = HE 100%
 - No entrada/saída → counted as falta (absence)
 - Em registros antigos (sem `saida_almoco`/`volta_almoco`) o `intervalo` salvo é usado como fallback.
+
+## Justificativa de Falta/Atraso
+
+- Cada registro tem o campo `justificativa` com 3 valores: `nenhuma` (padrão), `justificada`, `injustificada`.
+- **Justificada** (não desconta): `total_horas` é forçado a igualar a jornada do dia (jornada_padrao do dia ou `funcionario.jornada_diaria` como fallback). HE 60%, HE 100%, atrasos e faltas são zerados; `horas_justificadas` armazena a diferença `jornada - horas_trabalhadas` para fins de relatório.
+- **Injustificada** (desconta): mantém o cálculo normal — falta/atraso continua descontado, `horas_justificadas` fica nulo.
+- Os endpoints `/api/funcionarios/:id/registros`, `/api/resumo` e `/api/consolidado` agregam `horas_justificadas` (HH:MM) e `dias_justificados` (contagem). A tela "Resumo" exibe coluna "Hrs Just." e a tela de Folha Individual mostra cards "Hrs Just." / "Dias Just." e colunas dedicadas na tabela; o modal de edição traz o seletor "Justificativa".
+- A importação Excel preserva a `justificativa` existente da linha (recalculando `horas_justificadas` quando aplicável).
 
 ## Datas e formato BR
 
