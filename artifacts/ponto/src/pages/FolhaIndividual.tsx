@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile } from "@/lib/utils";
 import type { FolhaMensal, RegistroPonto } from "@workspace/api-client-react";
+import { toast } from "@/hooks/use-toast";
 
 type JornadaPadrao = {
   entrada_padrao: string | null;
@@ -171,6 +172,193 @@ function defaultTipoForDate(dateStr: string, jornada: JornadaPadrao): TipoDia {
   if (isDomFeriado(dateStr)) return "feriado";
   if (jornada?.is_folga) return "feriado";
   return "normal";
+}
+
+const TIPO_CELL_CLASS: Record<TipoDia, string> = {
+  normal: "text-gray-300",
+  feriado: "bg-yellow-100 text-yellow-800",
+  feriado_trabalhado: "bg-amber-100 text-amber-800",
+  falta: "bg-red-100 text-red-700",
+  falta_justificada: "bg-green-100 text-green-700",
+  atraso_justificado: "bg-blue-100 text-blue-700",
+};
+
+const TIPO_CELL_SHORT: Record<TipoDia, string> = {
+  normal: "—",
+  feriado: "Feriado",
+  feriado_trabalhado: "Fer. Trab.",
+  falta: "Falta",
+  falta_justificada: "Falta Just.",
+  atraso_justificado: "Atr. Just.",
+};
+
+const HHMM_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+function EditableTimeCell({
+  value,
+  onSave,
+  className = "",
+}: {
+  value: string | null | undefined;
+  onSave: (newValue: string | null) => Promise<void>;
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const cancellingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function start() {
+    setDraft(value ?? "");
+    cancellingRef.current = false;
+    setEditing(true);
+  }
+
+  function reset() {
+    setEditing(false);
+    setDraft("");
+    cancellingRef.current = false;
+  }
+
+  async function commit() {
+    if (cancellingRef.current) {
+      reset();
+      return;
+    }
+    const trimmed = draft.trim();
+    const original = value ?? "";
+    if (trimmed === original) {
+      reset();
+      return;
+    }
+    if (trimmed && !HHMM_RE.test(trimmed)) {
+      toast({
+        title: "Formato inválido",
+        description: "Use o formato HH:MM (ex.: 08:00).",
+        variant: "destructive",
+      });
+      reset();
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(trimmed === "" ? null : trimmed);
+      reset();
+    } catch (err) {
+      toast({
+        title: "Erro ao salvar",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+      reset();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <input
+        ref={inputRef}
+        autoFocus
+        type="text"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            (e.target as HTMLInputElement).blur();
+          } else if (e.key === "Escape") {
+            e.preventDefault();
+            cancellingRef.current = true;
+            (e.target as HTMLInputElement).blur();
+          }
+        }}
+        disabled={saving}
+        placeholder="HH:MM"
+        className={`w-16 text-center font-mono text-sm border border-[#4A90D9] rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#4A90D9] ${saving ? "opacity-60" : ""}`}
+      />
+    );
+  }
+
+  return (
+    <div
+      onDoubleClick={start}
+      title="Duplo clique para editar"
+      className={`font-mono text-sm cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 ${className}`}
+    >
+      {value ? value : <span className="text-gray-300">—</span>}
+    </div>
+  );
+}
+
+function EditableTipoCell({
+  value,
+  onSave,
+}: {
+  value: TipoDia;
+  onSave: (newValue: TipoDia) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function commit(newValue: TipoDia) {
+    if (newValue === value) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onSave(newValue);
+      setEditing(false);
+    } catch (err) {
+      toast({
+        title: "Erro ao salvar",
+        description: err instanceof Error ? err.message : String(err),
+        variant: "destructive",
+      });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <select
+        autoFocus
+        value={value}
+        disabled={saving}
+        onChange={(e) => commit(e.target.value as TipoDia)}
+        onBlur={() => setEditing(false)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            e.preventDefault();
+            setEditing(false);
+          }
+        }}
+        className="text-xs border border-[#4A90D9] rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#4A90D9]"
+      >
+        {(Object.keys(TIPO_DIA_LABEL) as TipoDia[]).map((t) => (
+          <option key={t} value={t}>{TIPO_DIA_LABEL[t]}</option>
+        ))}
+      </select>
+    );
+  }
+
+  return (
+    <div
+      onDoubleClick={() => setEditing(true)}
+      title="Duplo clique para editar"
+      className="cursor-pointer rounded px-1 py-0.5 hover:bg-blue-50 hover:ring-1 hover:ring-blue-200 inline-block"
+    >
+      {value === "normal"
+        ? <span className="text-gray-300">—</span>
+        : <span className={`px-1.5 py-0.5 rounded font-medium ${TIPO_CELL_CLASS[value]}`}>{TIPO_CELL_SHORT[value]}</span>}
+    </div>
+  );
 }
 
 export default function FolhaIndividual() {
@@ -389,6 +577,91 @@ export default function FolhaIndividual() {
     }
   }
 
+  const saveInline = useCallback(
+    async (
+      reg: FolhaRegistro,
+      changes: Partial<Pick<RegistroPonto, "entrada" | "saida" | "saida_almoco" | "volta_almoco" | "tipo_dia">>,
+    ) => {
+      if (!numId) return;
+
+      const merged = {
+        data: reg.data,
+        entrada: reg.entrada ?? null,
+        saida: reg.saida ?? null,
+        saida_almoco: reg.saida_almoco ?? null,
+        volta_almoco: reg.volta_almoco ?? null,
+        observacoes: reg.observacoes ?? null,
+        tipo_dia: ((reg.tipo_dia as TipoDia | undefined) ?? "normal") as TipoDia,
+        ...changes,
+      };
+
+      const tipo = (merged.tipo_dia ?? "normal") as TipoDia;
+      let entrada = merged.entrada ?? null;
+      let saida = merged.saida ?? null;
+      let saidaAlmoco = merged.saida_almoco ?? null;
+      let voltaAlmoco = merged.volta_almoco ?? null;
+
+      // Tipo change: clear horários for tipos sem horário
+      if ("tipo_dia" in changes) {
+        if (TIPOS_SEM_HORARIO.has(tipo)) {
+          entrada = null;
+          saida = null;
+          saidaAlmoco = null;
+          voltaAlmoco = null;
+        } else if (
+          tipo === "normal" &&
+          !entrada &&
+          !saida &&
+          !saidaAlmoco &&
+          !voltaAlmoco &&
+          reg.jornada_padrao?.entrada_padrao &&
+          reg.jornada_padrao?.saida_padrao
+        ) {
+          // Auto-preencher com jornada padrão quando todos horários estão vazios
+          const entradaP = reg.jornada_padrao.entrada_padrao;
+          const saidaP = reg.jornada_padrao.saida_padrao;
+          const intervaloP = reg.jornada_padrao.intervalo_padrao ?? null;
+          entrada = entradaP;
+          saida = saidaP;
+          if (intervaloP) {
+            const eMin = timeToMinutes(entradaP);
+            const sMin = timeToMinutes(saidaP);
+            const iMin = timeToMinutes(intervaloP);
+            if (sMin > eMin && iMin > 0 && iMin < (sMin - eMin)) {
+              const meio = Math.floor((eMin + sMin) / 2);
+              const sa = meio - Math.floor(iMin / 2);
+              const va = sa + iMin;
+              saidaAlmoco = minutesToTime(sa);
+              voltaAlmoco = minutesToTime(va);
+            }
+          }
+        }
+      }
+
+      const intervaloDerivado = TIPOS_SEM_HORARIO.has(tipo)
+        ? null
+        : deriveIntervalo(saidaAlmoco, voltaAlmoco);
+
+      await upsert.mutateAsync({
+        data: {
+          funcionario_id: numId,
+          data: merged.data,
+          entrada,
+          saida,
+          saida_almoco: saidaAlmoco,
+          volta_almoco: voltaAlmoco,
+          intervalo: intervaloDerivado,
+          observacoes: merged.observacoes ?? null,
+          tipo_dia: tipo,
+        },
+      });
+      await qc.invalidateQueries({
+        queryKey: getGetRegistrosFuncionarioQueryKey(numId, { mes }),
+      });
+    },
+    [numId, mes, qc, upsert],
+  );
+
   function handleDownloadFolha() {
     downloadAuthenticatedFile(`/api/exportar/folha/${numId}?mes=${mes}`).catch((e) => {
       alert(e instanceof Error ? e.message : String(e));
@@ -499,6 +772,8 @@ export default function FolhaIndividual() {
                 <th className="px-3 py-2.5 text-left font-semibold">Data</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Dia</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Entrada</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Saída Interv.</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Volta Interv.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Saída</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Intervalo</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Total Hrs</th>
@@ -515,7 +790,7 @@ export default function FolhaIndividual() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={14} className="text-center py-12 text-gray-400">
+                  <td colSpan={16} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
@@ -546,8 +821,30 @@ export default function FolhaIndividual() {
                       {reg.dia_semana?.slice(0, 3)}
                       {isFolga && !isDomingo && <span className="ml-1 text-orange-400 text-xs">F</span>}
                     </td>
-                    <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.entrada)}</td>
-                    <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.saida)}</td>
+                    <td className="px-3 py-2 text-center">
+                      <EditableTimeCell
+                        value={reg.entrada}
+                        onSave={(v) => saveInline(reg, { entrada: v })}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <EditableTimeCell
+                        value={reg.saida_almoco}
+                        onSave={(v) => saveInline(reg, { saida_almoco: v })}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <EditableTimeCell
+                        value={reg.volta_almoco}
+                        onSave={(v) => saveInline(reg, { volta_almoco: v })}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-center">
+                      <EditableTimeCell
+                        value={reg.saida}
+                        onSave={(v) => saveInline(reg, { saida: v })}
+                      />
+                    </td>
                     <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.intervalo)}</td>
                     <td className="px-3 py-2 text-center font-mono text-sm font-medium">
                       {reg.total_horas ? reg.total_horas : <span className="text-gray-300">—</span>}
@@ -569,28 +866,10 @@ export default function FolhaIndividual() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center text-xs">
-                      {(() => {
-                        const t = (reg.tipo_dia as TipoDia | undefined) ?? "normal";
-                        const cls: Record<TipoDia, string> = {
-                          normal: "text-gray-300",
-                          feriado: "bg-yellow-100 text-yellow-800",
-                          feriado_trabalhado: "bg-amber-100 text-amber-800",
-                          falta: "bg-red-100 text-red-700",
-                          falta_justificada: "bg-green-100 text-green-700",
-                          atraso_justificado: "bg-blue-100 text-blue-700",
-                        };
-                        const short: Record<TipoDia, string> = {
-                          normal: "—",
-                          feriado: "Feriado",
-                          feriado_trabalhado: "Fer. Trab.",
-                          falta: "Falta",
-                          falta_justificada: "Falta Just.",
-                          atraso_justificado: "Atr. Just.",
-                        };
-                        return t === "normal"
-                          ? <span className="text-gray-300">—</span>
-                          : <span className={`px-1.5 py-0.5 rounded font-medium ${cls[t]}`}>{short[t]}</span>;
-                      })()}
+                      <EditableTipoCell
+                        value={(reg.tipo_dia as TipoDia | undefined) ?? "normal"}
+                        onSave={(v) => saveInline(reg, { tipo_dia: v })}
+                      />
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-sm">
                       {reg.horas_justificadas ? <span className="text-blue-600">{reg.horas_justificadas}</span> : <span className="text-gray-300">—</span>}

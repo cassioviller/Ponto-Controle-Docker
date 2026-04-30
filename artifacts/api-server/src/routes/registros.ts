@@ -221,11 +221,9 @@ router.post("/registros", async (req, res) => {
     const jornadaDia = await getJornadaDia(body.funcionario_id, body.data);
     const feriadoEmpresa = await isFeriadoEmpresa(empresaId, body.data);
 
-    const lunchPair = (body.saida_almoco ? 1 : 0) + (body.volta_almoco ? 1 : 0);
-    if (lunchPair === 1) {
-      res.status(400).json({ error: "Informe Saída do almoço E Volta do almoço (ou nenhum dos dois)" });
-      return;
-    }
+    // Permite salvar apenas uma das pontas do intervalo (saída/volta de almoço).
+    // Útil para edição inline da Folha Individual: o usuário preenche uma ponta
+    // e depois a outra. O intervalo derivado só é calculado quando ambas existem.
     if (body.saida_almoco && body.volta_almoco) {
       if (timeToMinutes(body.volta_almoco) <= timeToMinutes(body.saida_almoco)) {
         res.status(400).json({ error: "Volta do almoço deve ser maior que Saída do almoço" });
