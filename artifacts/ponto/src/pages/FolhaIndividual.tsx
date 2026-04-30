@@ -77,7 +77,33 @@ function isoToBrDate(iso: string | null | undefined): string {
   return `${m[3]}/${m[2]}/${m[1]}`;
 }
 
-type Justificativa = "nenhuma" | "justificada" | "injustificada";
+type TipoDia =
+  | "normal"
+  | "feriado"
+  | "feriado_trabalhado"
+  | "falta"
+  | "falta_justificada"
+  | "atraso_justificado";
+
+const TIPO_DIA_LABEL: Record<TipoDia, string> = {
+  normal: "Normal",
+  feriado: "Feriado (não trabalhado)",
+  feriado_trabalhado: "Feriado Trabalhado",
+  falta: "Falta",
+  falta_justificada: "Falta Justificada",
+  atraso_justificado: "Atraso Justificado",
+};
+
+const TIPO_DIA_BANNER: Record<TipoDia, string> = {
+  normal: "Cálculo padrão pela jornada do dia. Horas além da jornada viram HE 60% (até 2h) e HE 100% (acima).",
+  feriado: "Dia não trabalhado. Conta como jornada padrão. Sem HE, sem atraso, sem falta.",
+  feriado_trabalhado: "Todas as horas trabalhadas viram HE 100%. Sem atraso, sem desconto.",
+  falta: "Conta 1 falta no mês. Total / HE / Atrasos = 0.",
+  falta_justificada: "Sem desconto. Total = jornada padrão. As horas não trabalhadas viram 'horas justificadas'.",
+  atraso_justificado: "Atrasos zerados. HE só sobre o excesso da jornada.",
+};
+
+const TIPOS_SEM_HORARIO = new Set<TipoDia>(["feriado", "falta", "falta_justificada"]);
 
 function jornadaNetMin(jornada: JornadaPadrao, jornadaDiariaFallback?: string | null): number {
   if (jornada?.entrada_padrao && jornada?.saida_padrao) {
@@ -87,58 +113,51 @@ function jornadaNetMin(jornada: JornadaPadrao, jornadaDiariaFallback?: string | 
   return timeToMinutes(jornadaDiariaFallback ?? null) || 480;
 }
 
-function autoCalculate(
+function calcByTipo(
+  tipo: TipoDia,
   entrada: string | null | undefined,
   saida: string | null | undefined,
   intervalo: string | null | undefined,
   jornada: JornadaPadrao,
-  dateStr: string,
-  justificativa: Justificativa = "nenhuma",
   jornadaDiariaFallback: string | null = null,
 ): { total_horas: string | null; he_60: string | null; he_100: string | null; atrasos: string | null; faltas: string; intervalo_used: string | null; horas_justificadas: string | null } {
-  const isFolga = isDomFeriado(dateStr) || (jornada?.is_folga ?? false);
   const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
-
-  if (justificativa === "justificada") {
-    const jornadaMin = jornadaNetMin(jornada, jornadaDiariaFallback);
-    const trabalhadasMin = entrada && saida
-      ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
-      : 0;
-    const horasJustMin = Math.max(jornadaMin - trabalhadasMin, 0);
-    return {
-      total_horas: minutesToTime(jornadaMin),
-      he_60: "00:00",
-      he_100: "00:00",
-      atrasos: "00:00",
-      faltas: "0",
-      intervalo_used: intervaloUsed,
-      horas_justificadas: minutesToTime(horasJustMin),
-    };
-  }
-
-  if (!entrada || !saida) {
-    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: isFolga ? "0" : "1", intervalo_used: intervaloUsed, horas_justificadas: null };
-  }
-
-  const entradaMin = timeToMinutes(entrada);
-  const saidaMin = timeToMinutes(saida);
-  const intervaloMin = timeToMinutes(intervaloUsed);
-  let totalMin = saidaMin - entradaMin - intervaloMin;
-  if (totalMin < 0) totalMin = 0;
-
-  if (isFolga) {
-    return { total_horas: minutesToTime(totalMin), he_60: "00:00", he_100: minutesToTime(totalMin), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: null };
-  }
-
   const jornadaMin = jornadaNetMin(jornada, jornadaDiariaFallback);
 
-  const extraMin = Math.max(totalMin - jornadaMin, 0);
+  const trabMin = entrada && saida
+    ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+    : 0;
+
+  if (tipo === "falta") {
+    return { total_horas: "00:00", he_60: "00:00", he_100: "00:00", atrasos: "00:00", faltas: "1", intervalo_used: null, horas_justificadas: "00:00" };
+  }
+  if (tipo === "feriado") {
+    return { total_horas: minutesToTime(jornadaMin), he_60: "00:00", he_100: "00:00", atrasos: "00:00", faltas: "0", intervalo_used: null, horas_justificadas: "00:00" };
+  }
+  if (tipo === "feriado_trabalhado") {
+    return { total_horas: minutesToTime(trabMin), he_60: "00:00", he_100: minutesToTime(trabMin), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: "00:00" };
+  }
+  if (tipo === "falta_justificada") {
+    const horasJustMin = Math.max(jornadaMin - trabMin, 0);
+    return { total_horas: minutesToTime(jornadaMin), he_60: "00:00", he_100: "00:00", atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: minutesToTime(horasJustMin) };
+  }
+  if (tipo === "atraso_justificado") {
+    const extraMin = Math.max(trabMin - jornadaMin, 0);
+    const he60Min = Math.min(extraMin, 120);
+    const he100Min = Math.max(extraMin - 120, 0);
+    return { total_horas: minutesToTime(trabMin), he_60: minutesToTime(he60Min), he_100: minutesToTime(he100Min), atrasos: "00:00", faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: "00:00" };
+  }
+
+  // normal
+  if (!entrada || !saida) {
+    return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: null };
+  }
+  const extraMin = Math.max(trabMin - jornadaMin, 0);
   const he60Min = Math.min(extraMin, 120);
   const he100Min = Math.max(extraMin - 120, 0);
-  const atrasosMin = totalMin < jornadaMin ? jornadaMin - totalMin : 0;
-
+  const atrasosMin = trabMin < jornadaMin ? jornadaMin - trabMin : 0;
   return {
-    total_horas: minutesToTime(totalMin),
+    total_horas: minutesToTime(trabMin),
     he_60: minutesToTime(he60Min),
     he_100: minutesToTime(he100Min),
     atrasos: minutesToTime(atrasosMin),
@@ -146,6 +165,12 @@ function autoCalculate(
     intervalo_used: intervaloUsed,
     horas_justificadas: null,
   };
+}
+
+function defaultTipoForDate(dateStr: string, jornada: JornadaPadrao): TipoDia {
+  if (isDomFeriado(dateStr)) return "feriado";
+  if (jornada?.is_folga) return "feriado";
+  return "normal";
 }
 
 export default function FolhaIndividual() {
@@ -196,14 +221,14 @@ export default function FolhaIndividual() {
         const nextSaidaAlmoco = key === "saida_almoco" ? (value || null) : (prev.saida_almoco ?? null);
         const nextVoltaAlmoco = key === "volta_almoco" ? (value || null) : (prev.volta_almoco ?? null);
         const intervaloDerivado = deriveIntervalo(nextSaidaAlmoco, nextVoltaAlmoco);
+        const tipo = (prev.tipo_dia as TipoDia | undefined) ?? "normal";
 
-        const calc = autoCalculate(
+        const calc = calcByTipo(
+          tipo,
           key === "entrada" ? value : prev.entrada,
           key === "saida" ? value : prev.saida,
           intervaloDerivado,
           prev.jornada_padrao ?? null,
-          prev.data,
-          (prev.justificativa as Justificativa | undefined) ?? "nenhuma",
           folha?.funcionario?.jornada_diaria ?? null,
         );
         return {
@@ -222,22 +247,111 @@ export default function FolhaIndividual() {
     });
   }
 
-  function handleJustificativaChange(value: Justificativa) {
+  function handleTipoDiaChange(value: TipoDia) {
     setEditingRow((prev) => {
       if (!prev) return null;
-      const intervaloDerivado = deriveIntervalo(prev.saida_almoco ?? null, prev.volta_almoco ?? null) ?? prev.intervalo ?? null;
-      const calc = autoCalculate(
-        prev.entrada,
-        prev.saida,
+      const noTime = TIPOS_SEM_HORARIO.has(value);
+      const entrada = noTime ? null : prev.entrada;
+      const saida = noTime ? null : prev.saida;
+      const saidaAlmoco = noTime ? null : prev.saida_almoco;
+      const voltaAlmoco = noTime ? null : prev.volta_almoco;
+      const intervaloDerivado = noTime
+        ? null
+        : (deriveIntervalo(saidaAlmoco ?? null, voltaAlmoco ?? null) ?? prev.intervalo ?? null);
+
+      const calc = calcByTipo(
+        value,
+        entrada,
+        saida,
         intervaloDerivado,
         prev.jornada_padrao ?? null,
-        prev.data,
-        value,
         folha?.funcionario?.jornada_diaria ?? null,
       );
       return {
         ...prev,
-        justificativa: value,
+        tipo_dia: value,
+        entrada,
+        saida,
+        saida_almoco: saidaAlmoco,
+        volta_almoco: voltaAlmoco,
+        intervalo: intervaloDerivado,
+        total_horas: calc.total_horas,
+        he_60: calc.he_60,
+        he_100: calc.he_100,
+        atrasos: calc.atrasos,
+        faltas: calc.faltas,
+        horas_justificadas: calc.horas_justificadas,
+      };
+    });
+  }
+
+  function handlePreencherPadrao() {
+    setEditingRow((prev) => {
+      if (!prev) return null;
+      const entradaP = prev.jornada_padrao?.entrada_padrao ?? null;
+      const saidaP = prev.jornada_padrao?.saida_padrao ?? null;
+      if (!entradaP || !saidaP) return prev;
+      const intervaloP = prev.jornada_padrao?.intervalo_padrao ?? null;
+      let saidaAlmoco: string | null = null;
+      let voltaAlmoco: string | null = null;
+      if (intervaloP) {
+        // Centra o intervalo no meio da jornada
+        const eMin = timeToMinutes(entradaP);
+        const sMin = timeToMinutes(saidaP);
+        const iMin = timeToMinutes(intervaloP);
+        if (sMin > eMin && iMin > 0 && iMin < (sMin - eMin)) {
+          const meio = Math.floor((eMin + sMin) / 2);
+          const sa = meio - Math.floor(iMin / 2);
+          const va = sa + iMin;
+          saidaAlmoco = minutesToTime(sa);
+          voltaAlmoco = minutesToTime(va);
+        }
+      }
+      const tipo = (prev.tipo_dia as TipoDia | undefined) ?? "normal";
+      const calc = calcByTipo(
+        tipo,
+        entradaP,
+        saidaP,
+        intervaloP,
+        prev.jornada_padrao ?? null,
+        folha?.funcionario?.jornada_diaria ?? null,
+      );
+      return {
+        ...prev,
+        entrada: entradaP,
+        saida: saidaP,
+        saida_almoco: saidaAlmoco,
+        volta_almoco: voltaAlmoco,
+        intervalo: intervaloP,
+        total_horas: calc.total_horas,
+        he_60: calc.he_60,
+        he_100: calc.he_100,
+        atrasos: calc.atrasos,
+        faltas: calc.faltas,
+        horas_justificadas: calc.horas_justificadas,
+      };
+    });
+  }
+
+  function handleLimparHorarios() {
+    setEditingRow((prev) => {
+      if (!prev) return null;
+      const tipo = (prev.tipo_dia as TipoDia | undefined) ?? "normal";
+      const calc = calcByTipo(
+        tipo,
+        null,
+        null,
+        null,
+        prev.jornada_padrao ?? null,
+        folha?.funcionario?.jornada_diaria ?? null,
+      );
+      return {
+        ...prev,
+        entrada: null,
+        saida: null,
+        saida_almoco: null,
+        volta_almoco: null,
+        intervalo: null,
         total_horas: calc.total_horas,
         he_60: calc.he_60,
         he_100: calc.he_100,
@@ -252,6 +366,7 @@ export default function FolhaIndividual() {
     if (!editingRow || !numId) return;
     setSaving(true);
     try {
+      const tipo = (editingRow.tipo_dia as TipoDia | undefined) ?? "normal";
       await upsert.mutateAsync({
         data: {
           funcionario_id: numId,
@@ -261,12 +376,8 @@ export default function FolhaIndividual() {
           saida_almoco: editingRow.saida_almoco ?? null,
           volta_almoco: editingRow.volta_almoco ?? null,
           intervalo: editingRow.intervalo ?? null,
-          he_60: editingRow.he_60 ?? null,
-          he_100: editingRow.he_100 ?? null,
-          atrasos: editingRow.atrasos ?? null,
-          faltas: editingRow.faltas ?? null,
           observacoes: editingRow.observacoes ?? null,
-          justificativa: ((editingRow.justificativa as Justificativa | undefined) ?? "nenhuma"),
+          tipo_dia: tipo,
         },
       });
       await qc.invalidateQueries({
@@ -395,7 +506,7 @@ export default function FolhaIndividual() {
                 <th className="px-3 py-2.5 text-center font-semibold">HE 100%</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Atrasos</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Justif.</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Tipo</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Hrs Just.</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Observações</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ed.</th>
@@ -458,13 +569,28 @@ export default function FolhaIndividual() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center text-xs">
-                      {reg.justificativa === "justificada" ? (
-                        <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">Just.</span>
-                      ) : reg.justificativa === "injustificada" ? (
-                        <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-medium">Injust.</span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
+                      {(() => {
+                        const t = (reg.tipo_dia as TipoDia | undefined) ?? "normal";
+                        const cls: Record<TipoDia, string> = {
+                          normal: "text-gray-300",
+                          feriado: "bg-yellow-100 text-yellow-800",
+                          feriado_trabalhado: "bg-amber-100 text-amber-800",
+                          falta: "bg-red-100 text-red-700",
+                          falta_justificada: "bg-green-100 text-green-700",
+                          atraso_justificado: "bg-blue-100 text-blue-700",
+                        };
+                        const short: Record<TipoDia, string> = {
+                          normal: "—",
+                          feriado: "Feriado",
+                          feriado_trabalhado: "Fer. Trab.",
+                          falta: "Falta",
+                          falta_justificada: "Falta Just.",
+                          atraso_justificado: "Atr. Just.",
+                        };
+                        return t === "normal"
+                          ? <span className="text-gray-300">—</span>
+                          : <span className={`px-1.5 py-0.5 rounded font-medium ${cls[t]}`}>{short[t]}</span>;
+                      })()}
                     </td>
                     <td className="px-3 py-2 text-center font-mono text-sm">
                       {reg.horas_justificadas ? <span className="text-blue-600">{reg.horas_justificadas}</span> : <span className="text-gray-300">—</span>}
@@ -532,40 +658,41 @@ export default function FolhaIndividual() {
                   />
                 </div>
               ))}
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Faltas</label>
+              <div className="col-span-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tipo do Dia</label>
                 <select
-                  value={editingRow.faltas ?? "0"}
-                  onChange={(e) =>
-                    setEditingRow((prev) => prev ? { ...prev, faltas: e.target.value } : null)
-                  }
+                  value={(editingRow.tipo_dia as TipoDia | undefined) ?? "normal"}
+                  onChange={(e) => handleTipoDiaChange(e.target.value as TipoDia)}
                   className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
                 >
-                  <option value="0">Sem falta</option>
-                  <option value="1">1 dia</option>
-                  <option value="0.5">Meio dia</option>
+                  {(Object.keys(TIPO_DIA_LABEL) as TipoDia[]).map((t) => (
+                    <option key={t} value={t}>{TIPO_DIA_LABEL[t]}</option>
+                  ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Justificativa</label>
-                <select
-                  value={(editingRow.justificativa as Justificativa | undefined) ?? "nenhuma"}
-                  onChange={(e) => handleJustificativaChange(e.target.value as Justificativa)}
-                  className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+              <div className="col-span-2 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-xs text-blue-800">
+                {TIPO_DIA_BANNER[(editingRow.tipo_dia as TipoDia | undefined) ?? "normal"]}
+                {editingRow.horas_justificadas && editingRow.horas_justificadas !== "00:00" && (
+                  <> · Horas justificadas: <span className="font-mono font-bold">{editingRow.horas_justificadas}</span></>
+                )}
+              </div>
+              <div className="col-span-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={handlePreencherPadrao}
+                  disabled={!editingRow.jornada_padrao?.entrada_padrao || !editingRow.jornada_padrao?.saida_padrao || TIPOS_SEM_HORARIO.has((editingRow.tipo_dia as TipoDia | undefined) ?? "normal")}
+                  className="px-3 py-1.5 text-xs bg-[#1B2A4A] text-white rounded hover:bg-[#253857] disabled:opacity-40"
                 >
-                  <option value="nenhuma">Nenhuma</option>
-                  <option value="justificada">Justificada (não desconta)</option>
-                  <option value="injustificada">Injustificada (desconta)</option>
-                </select>
+                  Preencher horário padrão
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLimparHorarios}
+                  className="px-3 py-1.5 text-xs border rounded text-gray-600 hover:bg-gray-50"
+                >
+                  Limpar horários
+                </button>
               </div>
-              {editingRow.justificativa === "justificada" && (
-                <div className="col-span-2 bg-blue-50 border border-blue-200 rounded px-3 py-2 text-xs text-blue-700">
-                  Falta/atraso justificado: total = jornada cheia, atrasos e HE zerados.
-                  {editingRow.horas_justificadas && (
-                    <> Horas justificadas: <span className="font-mono font-bold">{editingRow.horas_justificadas}</span></>
-                  )}
-                </div>
-              )}
               <div className="col-span-2">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Observações (atestado, viagem, ausência autorizada, etc.)

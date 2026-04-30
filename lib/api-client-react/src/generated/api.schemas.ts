@@ -132,6 +132,18 @@ export const RegistroPontoJustificativa = {
   injustificada: "injustificada",
 } as const;
 
+export type RegistroPontoTipoDia =
+  (typeof RegistroPontoTipoDia)[keyof typeof RegistroPontoTipoDia];
+
+export const RegistroPontoTipoDia = {
+  normal: "normal",
+  feriado: "feriado",
+  feriado_trabalhado: "feriado_trabalhado",
+  falta: "falta",
+  falta_justificada: "falta_justificada",
+  atraso_justificado: "atraso_justificado",
+} as const;
+
 export interface RegistroPonto {
   id: number;
   funcionario_id: number;
@@ -149,6 +161,7 @@ export interface RegistroPonto {
   observacoes?: string | null;
   justificativa?: RegistroPontoJustificativa;
   horas_justificadas?: string | null;
+  tipo_dia: RegistroPontoTipoDia;
 }
 
 export type UpsertRegistroBodyJustificativa =
@@ -158,6 +171,18 @@ export const UpsertRegistroBodyJustificativa = {
   nenhuma: "nenhuma",
   justificada: "justificada",
   injustificada: "injustificada",
+} as const;
+
+export type UpsertRegistroBodyTipoDia =
+  (typeof UpsertRegistroBodyTipoDia)[keyof typeof UpsertRegistroBodyTipoDia];
+
+export const UpsertRegistroBodyTipoDia = {
+  normal: "normal",
+  feriado: "feriado",
+  feriado_trabalhado: "feriado_trabalhado",
+  falta: "falta",
+  falta_justificada: "falta_justificada",
+  atraso_justificado: "atraso_justificado",
 } as const;
 
 export interface UpsertRegistroBody {
@@ -174,6 +199,7 @@ export interface UpsertRegistroBody {
   faltas?: string | null;
   observacoes?: string | null;
   justificativa?: UpsertRegistroBodyJustificativa;
+  tipo_dia?: UpsertRegistroBodyTipoDia;
 }
 
 export type BaterPontoBodyTipo =
@@ -221,6 +247,7 @@ export interface FolhaMensal {
 
 export interface ConsolidadoLinha {
   funcionario_id: number;
+  codigo?: number | null;
   nome: string;
   total_horas: string;
   he_60: string;

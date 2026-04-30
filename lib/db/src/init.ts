@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS registros_ponto (
   observacoes TEXT,
   justificativa TEXT NOT NULL DEFAULT 'nenhuma',
   horas_justificadas TEXT,
+  tipo_dia TEXT NOT NULL DEFAULT 'normal',
   atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -105,6 +106,8 @@ ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS volta_almoco TEXT;
 ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS justificativa TEXT NOT NULL DEFAULT 'nenhuma';
 
 ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS horas_justificadas TEXT;
+
+ALTER TABLE registros_ponto ADD COLUMN IF NOT EXISTS tipo_dia TEXT NOT NULL DEFAULT 'normal';
 
 CREATE UNIQUE INDEX IF NOT EXISTS funcionarios_empresa_codigo_unique ON funcionarios (empresa_id, codigo) WHERE empresa_id IS NOT NULL;
 

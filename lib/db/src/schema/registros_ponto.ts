@@ -23,8 +23,10 @@ export const registrosPontoTable = pgTable("registros_ponto", {
   atrasos: text("atrasos"),
   faltas: numeric("faltas", { precision: 3, scale: 1 }).default("0"),
   observacoes: text("observacoes"),
+  // Deprecated (mantido como espelho legado de tipo_dia durante a transição):
   justificativa: text("justificativa").notNull().default("nenhuma"),
   horas_justificadas: text("horas_justificadas"),
+  tipo_dia: text("tipo_dia").notNull().default("normal"),
   atualizado_em: timestamp("atualizado_em").notNull().defaultNow(),
 });
 

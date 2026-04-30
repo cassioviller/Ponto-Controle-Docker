@@ -50,6 +50,7 @@ export default function ConsolidadoPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#1B2A4A] text-white">
+                <th className="px-4 py-3 text-center font-semibold w-20">Código</th>
                 <th className="px-4 py-3 text-left font-semibold">Nome</th>
                 <th className="px-4 py-3 text-center font-semibold">Total Horas</th>
                 <th className="px-4 py-3 text-center font-semibold">HE 60%</th>
@@ -65,14 +66,14 @@ export default function ConsolidadoPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">
+                  <td colSpan={11} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && linhas.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">
+                  <td colSpan={11} className="text-center py-12 text-gray-400">
                     Nenhum dado para {formatMes(mes)}.
                   </td>
                 </tr>
@@ -82,6 +83,9 @@ export default function ConsolidadoPage() {
                   key={l.funcionario_id}
                   className={`border-b hover:bg-[#F0F5FF] transition-colors ${i % 2 === 0 ? "bg-white" : "bg-[#FAFBFC]"}`}
                 >
+                  <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-700">
+                    {l.codigo ?? "—"}
+                  </td>
                   <td className="px-4 py-2.5">
                     <button
                       onClick={() => navigate(`/funcionario/${l.funcionario_id}`)}
@@ -127,6 +131,7 @@ export default function ConsolidadoPage() {
               ))}
               {total && linhas.length > 0 && (
                 <tr className="bg-[#1B2A4A] text-white font-bold border-t-2 border-[#4A90D9]">
+                  <td className="px-4 py-3 text-center font-mono text-sm text-gray-300">—</td>
                   <td className="px-4 py-3 text-sm font-bold">TOTAL GERAL</td>
                   <td className="px-4 py-3 text-center font-mono text-sm">{total.total_horas}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm text-amber-300">{total.he_60}</td>

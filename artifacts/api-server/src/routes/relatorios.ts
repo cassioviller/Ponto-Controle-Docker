@@ -98,6 +98,7 @@ router.get("/consolidado", async (req, res) => {
 
       return {
         funcionario_id: f.id,
+        codigo: f.codigo ?? null,
         nome: f.nome,
         total_horas: minutesToTime(totalMin),
         he_60: minutesToTime(he60Min),
@@ -119,6 +120,7 @@ router.get("/consolidado", async (req, res) => {
 
     const totalGeral = {
       funcionario_id: 0,
+      codigo: null as number | null,
       nome: "TOTAL GERAL",
       total_horas: sumHHMM(linhas, "total_horas"),
       he_60: sumHHMM(linhas, "he_60"),

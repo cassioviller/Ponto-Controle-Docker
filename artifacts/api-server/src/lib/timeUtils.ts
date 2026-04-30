@@ -94,6 +94,186 @@ export interface CalcResult {
 
 export type Justificativa = "nenhuma" | "justificada" | "injustificada";
 
+export type TipoDia =
+  | "normal"
+  | "feriado"
+  | "feriado_trabalhado"
+  | "falta"
+  | "falta_justificada"
+  | "atraso_justificado";
+
+export const TIPOS_DIA: TipoDia[] = [
+  "normal",
+  "feriado",
+  "feriado_trabalhado",
+  "falta",
+  "falta_justificada",
+  "atraso_justificado",
+];
+
+export function isTipoDia(v: unknown): v is TipoDia {
+  return typeof v === "string" && (TIPOS_DIA as string[]).includes(v);
+}
+
+export interface CalcFromTipoDiaArgs {
+  tipo: TipoDia;
+  entrada: string | null | undefined;
+  saida: string | null | undefined;
+  intervalo: string | null | undefined;
+  jornada: JornadaDia | null | undefined;
+  dateStr: string;
+  jornadaDiariaFallback?: string | null | undefined;
+}
+
+/**
+ * Cálculo único e centralizado por Tipo do Dia.
+ * Substitui calcFromJornada/calcHEAndAtrasos quando o caller já sabe o tipo.
+ */
+export function calcFromTipoDia(args: CalcFromTipoDiaArgs): CalcResult {
+  const { tipo, entrada, saida, intervalo, jornada, jornadaDiariaFallback } = args;
+
+  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+  const fallbackMin = timeToMinutes(jornadaDiariaFallback) || 480;
+  const jornadaMin = jornada && jornada.entrada_padrao && jornada.saida_padrao
+    ? calcJornadaNetMin(jornada)
+    : fallbackMin;
+
+  const trabalhadasMin = entrada && saida
+    ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+    : 0;
+
+  switch (tipo) {
+    case "feriado": {
+      return {
+        total_horas: minutesToTime(jornadaMin),
+        he_60: "00:00",
+        he_100: "00:00",
+        atrasos: "00:00",
+        faltas: "0",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: "00:00",
+      };
+    }
+    case "feriado_trabalhado": {
+      return {
+        total_horas: minutesToTime(trabalhadasMin),
+        he_60: "00:00",
+        he_100: minutesToTime(trabalhadasMin),
+        atrasos: "00:00",
+        faltas: "0",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: "00:00",
+      };
+    }
+    case "falta": {
+      return {
+        total_horas: "00:00",
+        he_60: "00:00",
+        he_100: "00:00",
+        atrasos: "00:00",
+        faltas: "1",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: "00:00",
+      };
+    }
+    case "falta_justificada": {
+      const horasJustMin = Math.max(jornadaMin - trabalhadasMin, 0);
+      return {
+        total_horas: minutesToTime(jornadaMin),
+        he_60: "00:00",
+        he_100: "00:00",
+        atrasos: "00:00",
+        faltas: "0",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: minutesToTime(horasJustMin),
+      };
+    }
+    case "atraso_justificado": {
+      const extraMin = Math.max(trabalhadasMin - jornadaMin, 0);
+      return {
+        total_horas: minutesToTime(trabalhadasMin),
+        he_60: minutesToTime(Math.min(extraMin, 120)),
+        he_100: minutesToTime(Math.max(extraMin - 120, 0)),
+        atrasos: "00:00",
+        faltas: "0",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: "00:00",
+      };
+    }
+    case "normal":
+    default: {
+      if (!entrada || !saida) {
+        return {
+          total_horas: null,
+          he_60: null,
+          he_100: null,
+          atrasos: null,
+          faltas: "0",
+          intervalo_used: intervaloUsed,
+          horas_justificadas: null,
+        };
+      }
+      const extraMin = Math.max(trabalhadasMin - jornadaMin, 0);
+      let atrasoMin = 0;
+      if (jornada?.entrada_padrao && entrada > jornada.entrada_padrao) {
+        atrasoMin = Math.max(timeToMinutes(entrada) - timeToMinutes(jornada.entrada_padrao), 0);
+      }
+      const atrasosMin = trabalhadasMin < jornadaMin ? jornadaMin - trabalhadasMin : atrasoMin;
+      return {
+        total_horas: minutesToTime(trabalhadasMin),
+        he_60: minutesToTime(Math.min(extraMin, 120)),
+        he_100: minutesToTime(Math.max(extraMin - 120, 0)),
+        atrasos: minutesToTime(Math.max(atrasosMin, 0)),
+        faltas: "0",
+        intervalo_used: intervaloUsed,
+        horas_justificadas: null,
+      };
+    }
+  }
+}
+
+/**
+ * Mantém os campos legados `justificativa` e `faltas` em sincronia com `tipo_dia`,
+ * para clientes/integrações que ainda lêem o schema antigo.
+ */
+export function legacyMirrorFromTipo(tipo: TipoDia, calcFaltas: string): {
+  justificativa: Justificativa;
+  faltas: string;
+} {
+  switch (tipo) {
+    case "falta_justificada":
+    case "atraso_justificado":
+      return { justificativa: "justificada", faltas: "0" };
+    case "falta":
+      return { justificativa: "injustificada", faltas: "1" };
+    default:
+      return { justificativa: "nenhuma", faltas: calcFaltas ?? "0" };
+  }
+}
+
+/**
+ * Inverso do mirror: usado durante a transição quando o cliente envia apenas
+ * justificativa+faltas (sem tipo_dia).
+ */
+export function tipoFromLegacy(
+  justificativa: Justificativa | null | undefined,
+  faltas: string | number | null | undefined,
+  hasHorasTrabalhadas: boolean,
+  isDomingoOuFeriado: boolean,
+): TipoDia {
+  if (justificativa === "justificada") {
+    return hasHorasTrabalhadas ? "atraso_justificado" : "falta_justificada";
+  }
+  const faltasNum = typeof faltas === "number" ? faltas : parseFloat(String(faltas ?? "0"));
+  if (faltasNum >= 1 && !hasHorasTrabalhadas) return "falta";
+  if (isDomingoOuFeriado) {
+    return hasHorasTrabalhadas ? "feriado_trabalhado" : "feriado";
+  }
+  // Compat: dia útil sem horas registradas é tratado como falta (comportamento legado).
+  if (!hasHorasTrabalhadas) return "falta";
+  return "normal";
+}
+
 export function calcFromJornada(
   entrada: string | null | undefined,
   saida: string | null | undefined,

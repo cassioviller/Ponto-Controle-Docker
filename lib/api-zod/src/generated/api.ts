@@ -286,6 +286,14 @@ export const GetRegistrosFuncionarioResponse = zod.object({
         .enum(["nenhuma", "justificada", "injustificada"])
         .optional(),
       horas_justificadas: zod.string().nullish(),
+      tipo_dia: zod.enum([
+        "normal",
+        "feriado",
+        "feriado_trabalhado",
+        "falta",
+        "falta_justificada",
+        "atraso_justificado",
+      ]),
     }),
   ),
   resumo: zod.object({
@@ -321,6 +329,16 @@ export const UpsertRegistroBody = zod.object({
   justificativa: zod
     .enum(["nenhuma", "justificada", "injustificada"])
     .optional(),
+  tipo_dia: zod
+    .enum([
+      "normal",
+      "feriado",
+      "feriado_trabalhado",
+      "falta",
+      "falta_justificada",
+      "atraso_justificado",
+    ])
+    .optional(),
 });
 
 export const UpsertRegistroResponse = zod.object({
@@ -342,6 +360,14 @@ export const UpsertRegistroResponse = zod.object({
     .enum(["nenhuma", "justificada", "injustificada"])
     .optional(),
   horas_justificadas: zod.string().nullish(),
+  tipo_dia: zod.enum([
+    "normal",
+    "feriado",
+    "feriado_trabalhado",
+    "falta",
+    "falta_justificada",
+    "atraso_justificado",
+  ]),
 });
 
 /**
@@ -376,6 +402,14 @@ export const BaterPontoResponse = zod.object({
       .enum(["nenhuma", "justificada", "injustificada"])
       .optional(),
     horas_justificadas: zod.string().nullish(),
+    tipo_dia: zod.enum([
+      "normal",
+      "feriado",
+      "feriado_trabalhado",
+      "falta",
+      "falta_justificada",
+      "atraso_justificado",
+    ]),
   }),
 });
 
@@ -391,6 +425,7 @@ export const GetConsolidadoResponse = zod.object({
   linhas: zod.array(
     zod.object({
       funcionario_id: zod.number(),
+      codigo: zod.number().nullish(),
       nome: zod.string(),
       total_horas: zod.string(),
       he_60: zod.string(),
@@ -405,6 +440,7 @@ export const GetConsolidadoResponse = zod.object({
   ),
   total_geral: zod.object({
     funcionario_id: zod.number(),
+    codigo: zod.number().nullish(),
     nome: zod.string(),
     total_horas: zod.string(),
     he_60: zod.string(),

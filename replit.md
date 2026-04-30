@@ -95,13 +95,29 @@ When editing a time record in FolhaIndividual, changing Entrada/Saída/Saída-Al
 - No entrada/saída → counted as falta (absence)
 - Em registros antigos (sem `saida_almoco`/`volta_almoco`) o `intervalo` salvo é usado como fallback.
 
-## Justificativa de Falta/Atraso
+## Tipo do Dia (lançamento unificado)
 
-- Cada registro tem o campo `justificativa` com 3 valores: `nenhuma` (padrão), `justificada`, `injustificada`.
-- **Justificada** (não desconta): `total_horas` é forçado a igualar a jornada do dia (jornada_padrao do dia ou `funcionario.jornada_diaria` como fallback). HE 60%, HE 100%, atrasos e faltas são zerados; `horas_justificadas` armazena a diferença `jornada - horas_trabalhadas` para fins de relatório.
-- **Injustificada** (desconta): mantém o cálculo normal — falta/atraso continua descontado, `horas_justificadas` fica nulo.
-- Os endpoints `/api/funcionarios/:id/registros`, `/api/resumo` e `/api/consolidado` agregam `horas_justificadas` (HH:MM) e `dias_justificados` (contagem). A tela "Resumo" exibe coluna "Hrs Just." e a tela de Folha Individual mostra cards "Hrs Just." / "Dias Just." e colunas dedicadas na tabela; o modal de edição traz o seletor "Justificativa".
-- A importação Excel preserva a `justificativa` existente da linha (recalculando `horas_justificadas` quando aplicável).
+Cada registro tem o campo `tipo_dia` (enum) com 6 valores que determinam todo o cálculo:
+
+| Tipo | Total | HE 60% | HE 100% | Atrasos | Faltas | Hrs Just. |
+|---|---|---|---|---|---|---|
+| `normal` | trabalhadas | excesso até 2h | excesso > 2h | jornada − trab. | 0 | — |
+| `feriado` | jornada padrão | 0 | 0 | 0 | 0 | 00:00 |
+| `feriado_trabalhado` | trabalhadas | 0 | trabalhadas | 0 | 0 | 00:00 |
+| `falta` | 00:00 | 0 | 0 | 0 | 1 | 00:00 |
+| `falta_justificada` | jornada padrão | 0 | 0 | 0 | 0 | jornada − trab. |
+| `atraso_justificado` | trabalhadas | excesso até 2h | excesso > 2h | 0 | 0 | 00:00 |
+
+- A regra única vive em `artifacts/api-server/src/lib/timeUtils.ts → calcFromTipoDia()` e é aplicada por POST `/registros`, `/ponto/bater` e `/importar`.
+- **Auto-detecção de feriado/domingo**: em `/ponto/bater`, se o registro do dia está com tipo default `normal` mas a data é domingo ou feriado (nacional ou da empresa), o tipo é automaticamente promovido para `feriado_trabalhado` antes do cálculo final.
+- Compat legado: campos antigos `justificativa` (`nenhuma`/`justificada`/`injustificada`) e `faltas` são preenchidos por `legacyMirrorFromTipo()` para manter relatórios e queries antigas funcionando. Backfill executado: linhas pré-tipo_dia foram derivadas via heurística. `tipoFromLegacy()` (usado quando o caller envia formato antigo sem `tipo_dia`) infere `falta` para dias úteis sem horas e `feriado`/`feriado_trabalhado` em domingos/feriados.
+- O endpoint `/consolidado` retorna `codigo` (do funcionário) por linha + `total_geral`.
+
+## UI de lançamento
+
+- **Folha Individual (modal)**: dropdown único "Tipo do Dia" + banner explicativo + botões "Preencher horário padrão" (usa `jornada_padrao`) e "Limpar horários". Os campos antigos "Faltas" e "Justificativa" foram removidos. A tabela tem coluna "Tipo" (chip colorido).
+- **Excel modelo**: aba "Registros de Ponto" tem 8 colunas (Data, Dia da Semana, Tipo do Dia, Entrada, Saída Almoço, Volta Almoço, Saída, Observações). Coluna "Tipo do Dia" tem dropdown nativo com os 6 valores em pt-BR.
+- **Excel exportar folha**: cores por tipo (feriado=amarelo, feriado_trab=âmbar, falta=vermelho, falta_just=verde, atraso_just=azul) sobrepõem as cores de sábado/domingo.
 
 ## Datas e formato BR
 

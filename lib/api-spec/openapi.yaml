@@ -702,10 +702,14 @@ components:
         horas_justificadas:
           type: string
           nullable: true
+        tipo_dia:
+          type: string
+          enum: [normal, feriado, feriado_trabalhado, falta, falta_justificada, atraso_justificado]
       required:
         - id
         - funcionario_id
         - data
+        - tipo_dia
 
     UpsertRegistroBody:
       type: object
@@ -747,6 +751,9 @@ components:
         justificativa:
           type: string
           enum: [nenhuma, justificada, injustificada]
+        tipo_dia:
+          type: string
+          enum: [normal, feriado, feriado_trabalhado, falta, falta_justificada, atraso_justificado]
       required:
         - funcionario_id
         - data
@@ -842,6 +849,9 @@ components:
       properties:
         funcionario_id:
           type: integer
+        codigo:
+          type: integer
+          nullable: true
         nome:
           type: string
         total_horas:
