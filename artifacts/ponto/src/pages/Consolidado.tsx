@@ -56,6 +56,8 @@ export default function ConsolidadoPage() {
                 <th className="px-4 py-3 text-center font-semibold">HE 100%</th>
                 <th className="px-4 py-3 text-center font-semibold">Atrasos</th>
                 <th className="px-4 py-3 text-center font-semibold">Faltas</th>
+                <th className="px-4 py-3 text-center font-semibold">Hrs Just.</th>
+                <th className="px-4 py-3 text-center font-semibold">Dias Just.</th>
                 <th className="px-4 py-3 text-center font-semibold">Dias Trab.</th>
                 <th className="px-4 py-3 text-center font-semibold">Dom/Fer.</th>
               </tr>
@@ -63,14 +65,14 @@ export default function ConsolidadoPage() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-400">
+                  <td colSpan={10} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && linhas.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-400">
+                  <td colSpan={10} className="text-center py-12 text-gray-400">
                     Nenhum dado para {formatMes(mes)}.
                   </td>
                 </tr>
@@ -109,6 +111,16 @@ export default function ConsolidadoPage() {
                       {l.faltas}
                     </span>
                   </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`font-mono text-sm ${l.horas_justificadas && l.horas_justificadas !== "00:00" ? "text-blue-600 font-medium" : "text-gray-300"}`}>
+                      {l.horas_justificadas || "00:00"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 text-center">
+                    <span className={`font-mono text-sm ${l.dias_justificados > 0 ? "text-blue-600 font-medium" : "text-gray-300"}`}>
+                      {l.dias_justificados ?? 0}
+                    </span>
+                  </td>
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-700">{l.dias_trabalhados}</td>
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-500">{l.dom_feriados}</td>
                 </tr>
@@ -121,6 +133,8 @@ export default function ConsolidadoPage() {
                   <td className="px-4 py-3 text-center font-mono text-sm text-orange-300">{total.he_100}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm text-yellow-300">{total.atrasos}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm text-red-300">{total.faltas}</td>
+                  <td className="px-4 py-3 text-center font-mono text-sm text-blue-300">{total.horas_justificadas || "00:00"}</td>
+                  <td className="px-4 py-3 text-center font-mono text-sm text-blue-300">{total.dias_justificados ?? 0}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm">{total.dias_trabalhados}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm">{total.dom_feriados}</td>
                 </tr>

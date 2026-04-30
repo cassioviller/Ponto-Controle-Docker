@@ -144,6 +144,7 @@ export default function Resumo() {
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Dia</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Hrs</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Hrs Just.</th>
+                <th className="px-3 py-2.5 text-center font-semibold">Dias Just.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">HE 60%</th>
                 <th className="px-3 py-2.5 text-center font-semibold">HE 100%</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ações</th>
@@ -152,14 +153,14 @@ export default function Resumo() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={13} className="text-center py-12 text-gray-400">
+                  <td colSpan={14} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && (!rows || rows.length === 0) && (
                 <tr>
-                  <td colSpan={13} className="text-center py-12 text-gray-400">
+                  <td colSpan={14} className="text-center py-12 text-gray-400">
                     Nenhum funcionário encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -226,6 +227,13 @@ export default function Resumo() {
                       <span className="text-blue-600">{r.horas_justificadas}</span>
                     ) : (
                       <span className="text-gray-400">00:00</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center font-mono">
+                    {r.dias_justificados && r.dias_justificados > 0 ? (
+                      <span className="text-blue-600">{r.dias_justificados}</span>
+                    ) : (
+                      <span className="text-gray-400">0</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center font-mono">
