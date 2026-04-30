@@ -1,6 +1,5 @@
 import { db } from "./index";
 import { funcionariosTable, registrosPontoTable } from "./schema";
-import { eq } from "drizzle-orm";
 
 const FUNCIONARIOS_SEED = [
   { codigo: 1,  nome: "ARIEL RIBEIRO",                   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
@@ -20,7 +19,9 @@ const FUNCIONARIOS_SEED = [
   { codigo: 31, nome: "EXEMPLO ESTAGIÁRIO",               cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "06:00", ativo: true },
 ] as const;
 
-const REGISTROS_ABRIL_2025_ARIEL = [
+type SeedReg = { data: string; entrada: string; saida: string; intervalo: string; faltas: string };
+
+const REGISTROS_ABRIL_2025_ARIEL: SeedReg[] = [
   { data: "2025-04-01", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
   { data: "2025-04-02", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
   { data: "2025-04-03", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
@@ -43,13 +44,97 @@ const REGISTROS_ABRIL_2025_ARIEL = [
   { data: "2025-04-30", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
 ];
 
-function calcMin(t: string | null | undefined): number {
-  if (!t) return 0;
+const REGISTROS_ABRIL_2025_EXEMPLO_CLT: SeedReg[] = [
+  { data: "2025-04-01", entrada: "08:00", saida: "17:30", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-02", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-03", entrada: "08:15", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-04", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-07", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-08", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-09", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-10", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-11", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-14", entrada: "08:00", saida: "18:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-15", entrada: "08:00", saida: "18:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-16", entrada: "09:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-22", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-23", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-24", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-25", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-28", entrada: "08:00", saida: "17:00", intervalo: "01:00", faltas: "0" },
+  { data: "2025-04-30", entrada: "08:00", saida: "12:00", intervalo: "00:00", faltas: "0.5" },
+];
+
+const REGISTROS_ABRIL_2025_EXEMPLO_ESTAGIARIO: SeedReg[] = [
+  { data: "2025-04-01", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-02", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-03", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-04", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-07", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-08", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-09", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-10", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-11", entrada: "08:30", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-14", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-22", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-23", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-24", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-25", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-28", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-29", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+  { data: "2025-04-30", entrada: "08:00", saida: "14:00", intervalo: "00:00", faltas: "0" },
+];
+
+function calcMin(t: string): number {
   const [h, m] = t.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
 }
+
 function minToTime(m: number): string {
   return `${String(Math.floor(Math.max(m, 0) / 60)).padStart(2, "0")}:${String(Math.max(m, 0) % 60).padStart(2, "0")}`;
+}
+
+function isDomingo(dateStr: string): boolean {
+  return new Date(dateStr + "T00:00:00").getDay() === 0;
+}
+
+async function seedRegistros(funcionarioId: number, jornadaMin: number, records: SeedReg[]): Promise<void> {
+  for (const r of records) {
+    const entradaMin = calcMin(r.entrada);
+    const saidaMin = calcMin(r.saida);
+    const intervaloMin = calcMin(r.intervalo);
+    const totalMin = Math.max(saidaMin - entradaMin - intervaloMin, 0);
+    const total_horas = minToTime(totalMin);
+
+    let he_60: string;
+    let he_100: string;
+    let atrasos: string;
+
+    if (isDomingo(r.data)) {
+      he_60 = "00:00";
+      he_100 = minToTime(totalMin);
+      atrasos = "00:00";
+    } else {
+      const extraMin = Math.max(totalMin - jornadaMin, 0);
+      he_60 = minToTime(Math.min(extraMin, 120));
+      he_100 = minToTime(Math.max(extraMin - 120, 0));
+      atrasos = totalMin < jornadaMin ? minToTime(jornadaMin - totalMin) : "00:00";
+    }
+
+    await db.insert(registrosPontoTable).values({
+      funcionario_id: funcionarioId,
+      data: r.data,
+      entrada: r.entrada,
+      saida: r.saida,
+      intervalo: r.intervalo,
+      total_horas,
+      he_60,
+      he_100,
+      atrasos,
+      faltas: r.faltas,
+      observacoes: null,
+    });
+  }
 }
 
 export async function runSeed(): Promise<void> {
@@ -58,7 +143,7 @@ export async function runSeed(): Promise<void> {
     return;
   }
 
-  console.log("[seed] Seeding funcionários...");
+  console.log("[seed] Seeding funcionários (15 total)...");
   const inserted = await db.insert(funcionariosTable).values(
     FUNCIONARIOS_SEED.map((f) => ({
       codigo: f.codigo,
@@ -74,36 +159,23 @@ export async function runSeed(): Promise<void> {
   ).returning();
 
   const ariel = inserted.find((f) => f.codigo === 1);
-  if (!ariel) return;
+  const exemploCLT = inserted.find((f) => f.codigo === 30);
+  const exemploEstagiario = inserted.find((f) => f.codigo === 31);
 
-  console.log("[seed] Seeding registros de ponto — Abril 2025 (Ariel)...");
-  for (const r of REGISTROS_ABRIL_2025_ARIEL) {
-    const entradaMin = calcMin(r.entrada);
-    const saidaMin = calcMin(r.saida);
-    const intervaloMin = calcMin(r.intervalo);
-    const totalMin = Math.max(saidaMin - entradaMin - intervaloMin, 0);
-    const total_horas = minToTime(totalMin);
-    const jornadaMin = 480;
-    const extraMin = Math.max(totalMin - jornadaMin, 0);
-    const he_60 = minToTime(Math.min(extraMin, 120));
-    const he_100 = minToTime(Math.max(extraMin - 120, 0));
-    const atrasosMin = totalMin < jornadaMin ? jornadaMin - totalMin : 0;
-    const atrasos = minToTime(atrasosMin);
-
-    await db.insert(registrosPontoTable).values({
-      funcionario_id: ariel.id,
-      data: r.data,
-      entrada: r.entrada,
-      saida: r.saida,
-      intervalo: r.intervalo,
-      total_horas,
-      he_60,
-      he_100,
-      atrasos,
-      faltas: r.faltas,
-      observacoes: null,
-    });
+  if (ariel) {
+    console.log("[seed] Seeding April 2025 registros — ARIEL RIBEIRO...");
+    await seedRegistros(ariel.id, 480, REGISTROS_ABRIL_2025_ARIEL);
   }
 
-  console.log("[seed] Seed concluído.");
+  if (exemploCLT) {
+    console.log("[seed] Seeding April 2025 registros — EXEMPLO COLABORADOR...");
+    await seedRegistros(exemploCLT.id, 480, REGISTROS_ABRIL_2025_EXEMPLO_CLT);
+  }
+
+  if (exemploEstagiario) {
+    console.log("[seed] Seeding April 2025 registros — EXEMPLO ESTAGIÁRIO...");
+    await seedRegistros(exemploEstagiario.id, 360, REGISTROS_ABRIL_2025_EXEMPLO_ESTAGIARIO);
+  }
+
+  console.log("[seed] Seed concluído: 15 funcionários, 3 funcionários com registros de Abril/2025.");
 }

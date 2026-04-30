@@ -39,7 +39,10 @@ const HEADER_STYLE: Partial<ExcelJS.Style> = {
 
 function isValidHHMM(val: string | null): boolean {
   if (!val) return true;
-  return /^\d{1,2}:\d{2}$/.test(val);
+  const match = /^(\d{1,3}):(\d{2})$/.exec(val);
+  if (!match) return false;
+  const minutes = parseInt(match[2] ?? "0", 10);
+  return minutes >= 0 && minutes <= 59;
 }
 
 router.get("/exportar/modelo", async (_req: Request, res: Response) => {
