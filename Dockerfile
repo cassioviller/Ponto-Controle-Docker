@@ -40,4 +40,4 @@ COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 
 EXPOSE 5987
 
-CMD ["node", "artifacts/api-server/dist/server.js"]
+CMD ["node", "artifacts/api-server/dist/index.mjs"]
