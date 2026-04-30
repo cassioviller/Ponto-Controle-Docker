@@ -118,8 +118,8 @@ router.get("/exportar/modelo", async (_req: Request, res: Response) => {
 
     await wb.xlsx.write(res);
     res.end();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -249,8 +249,8 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
 
     await wb.xlsx.write(res);
     res.end();
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 
@@ -364,8 +364,8 @@ router.post("/importar", async (req: Request, res: Response) => {
     }
 
     res.json({ importados, erros, mes });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
 });
 

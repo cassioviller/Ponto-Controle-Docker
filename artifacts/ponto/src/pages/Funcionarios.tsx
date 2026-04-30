@@ -7,7 +7,13 @@ import {
   getGetFuncionariosQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import type { Funcionario, CreateFuncionarioBody } from "@workspace/api-client-react";
+import type {
+  Funcionario,
+  CreateFuncionarioBody,
+  UpdateFuncionarioBody,
+  CreateFuncionarioBodyVinculo,
+  CreateFuncionarioBodySituacao,
+} from "@workspace/api-client-react";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
 const SITUACOES = ["Ativo", "Demitido", "Aviso", "Ferias"];
@@ -28,8 +34,8 @@ const EMPTY_FORM: Partial<CreateFuncionarioBody & { id?: number }> = {
   codigo: undefined,
   nome: "",
   cargo: "",
-  vinculo: "CLT" as any,
-  situacao: "Ativo" as any,
+  vinculo: "CLT" as CreateFuncionarioBodyVinculo,
+  situacao: "Ativo" as CreateFuncionarioBodySituacao,
   adiantamento: false,
   transporte: false,
   jornada_diaria: "08:00",
@@ -61,8 +67,8 @@ export default function Funcionarios() {
       codigo: f.codigo,
       nome: f.nome,
       cargo: f.cargo,
-      vinculo: f.vinculo as any,
-      situacao: f.situacao as any,
+      vinculo: f.vinculo as CreateFuncionarioBodyVinculo,
+      situacao: f.situacao as CreateFuncionarioBodySituacao,
       adiantamento: f.adiantamento,
       transporte: f.transporte,
       jornada_diaria: f.jornada_diaria,
@@ -75,10 +81,11 @@ export default function Funcionarios() {
   async function handleSave() {
     setSaving(true);
     try {
+      const { id: _ignored, ...formData } = form as CreateFuncionarioBody & { id?: number };
       if (editId) {
-        await update.mutateAsync({ id: editId, data: form as any });
+        await update.mutateAsync({ id: editId, data: formData as UpdateFuncionarioBody });
       } else {
-        await create.mutateAsync({ data: form as any });
+        await create.mutateAsync({ data: formData as CreateFuncionarioBody });
       }
       await qc.invalidateQueries({ queryKey: getGetFuncionariosQueryKey() });
       setDrawerOpen(false);

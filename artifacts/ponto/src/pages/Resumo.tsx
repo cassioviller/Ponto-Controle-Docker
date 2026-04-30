@@ -37,12 +37,12 @@ export default function Resumo() {
 
   const monthOptions = getMonthOptions();
 
-  const params: Record<string, string> = { mes };
-  if (situacao) params["situacao"] = situacao;
-  if (vinculo) params["vinculo"] = vinculo;
+  const params: { mes: string; situacao?: string; vinculo?: string } = { mes };
+  if (situacao) params.situacao = situacao;
+  if (vinculo) params.vinculo = vinculo;
 
-  const { data: resumo, isLoading } = useGetResumo(params as any, {
-    query: { queryKey: getGetResumoQueryKey(params as any) },
+  const { data: resumo, isLoading } = useGetResumo(params, {
+    query: { queryKey: getGetResumoQueryKey(params) },
   });
 
   const rows = resumo as ResumoFuncionario[] | undefined;

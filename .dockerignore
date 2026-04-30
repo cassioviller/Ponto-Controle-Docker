@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+**/.pnpm-store
+dist
+**/dist
+.git
+.gitignore
+*.log
+.local
+attached_assets
+artifacts/mockup-sandbox
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+*.md
+!README.md

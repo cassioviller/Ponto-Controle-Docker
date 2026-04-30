@@ -16,6 +16,10 @@ import {
 
 const router = Router();
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 router.get("/funcionarios", async (req, res) => {
   try {
     const query = GetFuncionariosQueryParams.parse(req.query);
@@ -32,8 +36,8 @@ router.get("/funcionarios", async (req, res) => {
     }
 
     res.json(rows);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -46,8 +50,8 @@ router.post("/funcionarios", async (req, res) => {
       .values(data)
       .returning();
     res.status(201).json(row);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -63,8 +67,8 @@ router.get("/funcionarios/:id", async (req, res) => {
       return;
     }
     res.json(row);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -82,8 +86,8 @@ router.put("/funcionarios/:id", async (req, res) => {
       return;
     }
     res.json(row);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -94,8 +98,8 @@ router.delete("/funcionarios/:id", async (req, res) => {
       .delete(funcionariosTable)
       .where(eq(funcionariosTable.id, id));
     res.json({ message: "Funcionário removido com sucesso" });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 

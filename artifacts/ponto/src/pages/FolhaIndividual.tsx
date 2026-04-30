@@ -269,23 +269,25 @@ export default function FolhaIndividual() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
             <h2 className="text-base font-bold text-[#1B2A4A] mb-4">
-              Editar Registro — {editingRow.data} ({(editingRow as any).dia_semana})
+              Editar Registro — {editingRow.data} ({editingRow.dia_semana})
             </h2>
             <div className="grid grid-cols-2 gap-3">
-              {[
-                { key: "entrada", label: "Entrada" },
-                { key: "saida", label: "Saída" },
-                { key: "intervalo", label: "Intervalo" },
-                { key: "he_60", label: "HE 60%" },
-                { key: "he_100", label: "HE 100%" },
-                { key: "atrasos", label: "Atrasos" },
-              ].map(({ key, label }) => (
-                <div key={key}>
+              {(
+                [
+                  { key: "entrada", label: "Entrada" },
+                  { key: "saida", label: "Saída" },
+                  { key: "intervalo", label: "Intervalo" },
+                  { key: "he_60", label: "HE 60%" },
+                  { key: "he_100", label: "HE 100%" },
+                  { key: "atrasos", label: "Atrasos" },
+                ] as { key: keyof EditRow; label: string }[]
+              ).map(({ key, label }) => (
+                <div key={key as string}>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{label} (HH:MM)</label>
                   <input
                     type="text"
                     placeholder="HH:MM"
-                    value={(editingRow as any)[key] ?? ""}
+                    value={(editingRow[key] as string | null | undefined) ?? ""}
                     onChange={(e) =>
                       setEditingRow((prev) => prev ? { ...prev, [key]: e.target.value || null } : null)
                     }
@@ -296,7 +298,7 @@ export default function FolhaIndividual() {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Faltas</label>
                 <select
-                  value={(editingRow as any).faltas ?? "0"}
+                  value={editingRow.faltas ?? "0"}
                   onChange={(e) =>
                     setEditingRow((prev) => prev ? { ...prev, faltas: e.target.value } : null)
                   }
@@ -311,7 +313,7 @@ export default function FolhaIndividual() {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Observações</label>
                 <input
                   type="text"
-                  value={(editingRow as any).observacoes ?? ""}
+                  value={editingRow.observacoes ?? ""}
                   onChange={(e) =>
                     setEditingRow((prev) => prev ? { ...prev, observacoes: e.target.value || null } : null)
                   }

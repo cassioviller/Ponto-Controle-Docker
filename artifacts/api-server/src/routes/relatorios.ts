@@ -9,7 +9,7 @@ import {
   GetConsolidadoQueryParams,
   GetResumoQueryParams,
 } from "@workspace/api-zod";
-import { parseMes, getDaysInMonth, getDiaSemana } from "../lib/timeUtils";
+import { parseMes, getDaysInMonth } from "../lib/timeUtils";
 
 const router = Router();
 
@@ -18,9 +18,9 @@ function minutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
-function sumTime(registros: any[], field: string): number {
-  return registros.reduce((acc: number, r: any) => {
-    const val: string = r[field] ?? "00:00";
+function sumTimeField(registros: Array<Record<string, string | null>>, field: string): number {
+  return registros.reduce((acc, r) => {
+    const val: string = (r[field] as string) ?? "00:00";
     const [h, m] = val.split(":").map(Number);
     return acc + (h ?? 0) * 60 + (m ?? 0);
   }, 0);
@@ -28,8 +28,13 @@ function sumTime(registros: any[], field: string): number {
 
 router.get("/consolidado", async (req, res) => {
   try {
-    const { mes } = GetConsolidadoQueryParams.parse(req.query);
-    const { year, month } = parseMes(mes as string);
+    const parsed = GetConsolidadoQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Parâmetro 'mes' é obrigatório (YYYY-MM)" });
+      return;
+    }
+    const { mes } = parsed.data;
+    const { year, month } = parseMes(mes);
 
     const funcionarios = await db
       .select()
@@ -49,14 +54,32 @@ router.get("/consolidado", async (req, res) => {
     const domingos = days.filter((d) => new Date(d + "T00:00:00").getDay() === 0).length;
 
     const linhas = funcionarios.map((f) => {
-      const regs = mesRegistros.filter((r) => r.funcionario_id === f.id);
+      const regs = mesRegistros
+        .filter((r) => r.funcionario_id === f.id)
+        .map((r) => ({ ...r, total_horas: r.total_horas, he_60: r.he_60, he_100: r.he_100, atrasos: r.atrasos }));
 
-      const totalMin = sumTime(regs, "total_horas");
-      const he60Min = sumTime(regs, "he_60");
-      const he100Min = sumTime(regs, "he_100");
-      const atrasosMin = sumTime(regs, "atrasos");
-      const faltas = regs.reduce((acc, r) => acc + parseFloat(r.faltas ?? "0"), 0);
-      const diasTrabalhados = regs.filter((r) => r.entrada && r.saida).length;
+      const totalMin = regs.reduce((acc, r) => {
+        const [h, m] = (r.total_horas ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const he60Min = regs.reduce((acc, r) => {
+        const [h, m] = (r.he_60 ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const he100Min = regs.reduce((acc, r) => {
+        const [h, m] = (r.he_100 ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const atrasosMin = regs.reduce((acc, r) => {
+        const [h, m] = (r.atrasos ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const faltas = mesRegistros
+        .filter((r) => r.funcionario_id === f.id)
+        .reduce((acc, r) => acc + parseFloat(r.faltas ?? "0"), 0);
+      const diasTrabalhados = mesRegistros
+        .filter((r) => r.funcionario_id === f.id && r.entrada && r.saida)
+        .length;
 
       return {
         funcionario_id: f.id,
@@ -71,41 +94,40 @@ router.get("/consolidado", async (req, res) => {
       };
     });
 
+    const sumHHMM = (items: typeof linhas, field: "total_horas" | "he_60" | "he_100" | "atrasos") =>
+      minutesToTime(items.reduce((acc, l) => {
+        const [h, m] = l[field].split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0));
+
     const totalGeral = {
       funcionario_id: 0,
       nome: "TOTAL GERAL",
-      total_horas: minutesToTime(linhas.reduce((acc, l) => {
-        const [h, m] = l.total_horas.split(":").map(Number);
-        return acc + (h ?? 0) * 60 + (m ?? 0);
-      }, 0)),
-      he_60: minutesToTime(linhas.reduce((acc, l) => {
-        const [h, m] = l.he_60.split(":").map(Number);
-        return acc + (h ?? 0) * 60 + (m ?? 0);
-      }, 0)),
-      he_100: minutesToTime(linhas.reduce((acc, l) => {
-        const [h, m] = l.he_100.split(":").map(Number);
-        return acc + (h ?? 0) * 60 + (m ?? 0);
-      }, 0)),
-      atrasos: minutesToTime(linhas.reduce((acc, l) => {
-        const [h, m] = l.atrasos.split(":").map(Number);
-        return acc + (h ?? 0) * 60 + (m ?? 0);
-      }, 0)),
+      total_horas: sumHHMM(linhas, "total_horas"),
+      he_60: sumHHMM(linhas, "he_60"),
+      he_100: sumHHMM(linhas, "he_100"),
+      atrasos: sumHHMM(linhas, "atrasos"),
       faltas: linhas.reduce((acc, l) => acc + l.faltas, 0),
       dias_trabalhados: linhas.reduce((acc, l) => acc + l.dias_trabalhados, 0),
       dom_feriados: domingos,
     };
 
     res.json({ mes, linhas, total_geral: totalGeral });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ error: message });
   }
 });
 
 router.get("/resumo", async (req, res) => {
   try {
-    const query = GetResumoQueryParams.parse(req.query);
-    const { mes, situacao, vinculo } = query as any;
-    const { year, month } = parseMes(mes as string);
+    const parsed = GetResumoQueryParams.safeParse(req.query);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Parâmetro 'mes' é obrigatório (YYYY-MM)" });
+      return;
+    }
+    const { mes, situacao, vinculo } = parsed.data;
+    const { year, month } = parseMes(mes);
 
     let funcionarios = await db.select().from(funcionariosTable);
 
@@ -127,9 +149,18 @@ router.get("/resumo", async (req, res) => {
     const result = funcionarios.map((f) => {
       const regs = mesRegistros.filter((r) => r.funcionario_id === f.id);
 
-      const he60Min = sumTime(regs, "he_60");
-      const he100Min = sumTime(regs, "he_100");
-      const atrasosMin = sumTime(regs, "atrasos");
+      const he60Min = regs.reduce((acc, r) => {
+        const [h, m] = (r.he_60 ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const he100Min = regs.reduce((acc, r) => {
+        const [h, m] = (r.he_100 ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
+      const atrasosMin = regs.reduce((acc, r) => {
+        const [h, m] = (r.atrasos ?? "00:00").split(":").map(Number);
+        return acc + (h ?? 0) * 60 + (m ?? 0);
+      }, 0);
       const faltasDia = regs.reduce((acc, r) => acc + parseFloat(r.faltas ?? "0"), 0);
       const faltasHorasMin = Math.round(faltasDia * 480);
 
@@ -151,8 +182,9 @@ router.get("/resumo", async (req, res) => {
     });
 
     res.json(result);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(400).json({ error: message });
   }
 });
 

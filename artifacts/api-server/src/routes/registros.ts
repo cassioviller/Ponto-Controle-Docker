@@ -27,6 +27,10 @@ function minutesToTime(m: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 router.get("/funcionarios/:id/registros", async (req, res) => {
   try {
     const { id } = GetRegistrosFuncionarioParams.parse({
@@ -128,8 +132,8 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       registros: folhaDias,
       resumo,
     });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -179,8 +183,8 @@ router.post("/registros", async (req, res) => {
     }
 
     res.json(row);
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
@@ -212,25 +216,20 @@ router.post("/ponto/bater", async (req, res) => {
 
     let row;
     if (existing.length > 0 && existing[0]) {
-      const updateData =
+      const prevReg = existing[0];
+      const updateFields =
         body.tipo === "entrada"
-          ? { entrada: horario }
-          : { saida: horario };
-
-      const updated: Record<string, any> = { ...updateData, atualizado_em: new Date() };
-      if (body.tipo === "saida" && existing[0].entrada) {
-        const { total_horas } = calcTotalHoras(
-          existing[0].entrada,
-          horario,
-          existing[0].intervalo,
-        );
-        updated["total_horas"] = total_horas;
-      }
+          ? { entrada: horario, atualizado_em: new Date() }
+          : {
+              saida: horario,
+              atualizado_em: new Date(),
+              total_horas: calcTotalHoras(prevReg.entrada, horario, prevReg.intervalo).total_horas,
+            };
 
       [row] = await db
         .update(registrosPontoTable)
-        .set(updated)
-        .where(eq(registrosPontoTable.id, existing[0].id))
+        .set(updateFields)
+        .where(eq(registrosPontoTable.id, prevReg.id))
         .returning();
     } else {
       const insertData =
@@ -251,8 +250,8 @@ router.post("/ponto/bater", async (req, res) => {
       data,
       registro: row,
     });
-  } catch (err: any) {
-    res.status(400).json({ error: err.message });
+  } catch (err: unknown) {
+    res.status(400).json({ error: errMsg(err) });
   }
 });
 
