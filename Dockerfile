@@ -20,8 +20,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 FROM deps AS build
 RUN pnpm --filter @workspace/db run generate 2>/dev/null || true
 RUN pnpm --filter @workspace/api-spec run codegen 2>/dev/null || true
-RUN pnpm --filter @workspace/ponto run build
-RUN pnpm --filter @workspace/api-server build 2>/dev/null || pnpm --filter @workspace/api-server run build
+RUN PORT=5987 BASE_PATH=/ pnpm --filter @workspace/ponto run build
+RUN pnpm --filter @workspace/api-server run build
 
 FROM node:20-slim AS runner
 
@@ -37,6 +37,9 @@ COPY --from=deps /app/artifacts ./artifacts
 COPY --from=build /app/artifacts/ponto/dist ./artifacts/ponto/dist
 COPY --from=build /app/artifacts/api-server/dist ./artifacts/api-server/dist
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
+
+ENV NODE_ENV=production
+ENV PORT=5987
 
 EXPOSE 5987
 

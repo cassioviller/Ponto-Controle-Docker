@@ -32,6 +32,50 @@ export function calcTotalHoras(
   return { total_horas: minutesToTime(totalMin) };
 }
 
+export function calcHEAndAtrasos(
+  entrada: string | null | undefined,
+  saida: string | null | undefined,
+  intervalo: string | null | undefined,
+  jornadaDiaria: string | null | undefined,
+  dateStr: string,
+): {
+  he_60: string | null;
+  he_100: string | null;
+  atrasos: string | null;
+} {
+  if (!entrada || !saida) {
+    return { he_60: null, he_100: null, atrasos: null };
+  }
+  const entradaMin = timeToMinutes(entrada);
+  const saidaMin = timeToMinutes(saida);
+  const intervaloMin = timeToMinutes(intervalo);
+  let totalMin = saidaMin - entradaMin - intervaloMin;
+  if (totalMin < 0) totalMin = 0;
+
+  const jornadaMin = timeToMinutes(jornadaDiaria) || 480;
+  const dt = new Date(dateStr + "T00:00:00");
+  const isDomingo = dt.getDay() === 0;
+
+  if (isDomingo) {
+    return {
+      he_60: "00:00",
+      he_100: minutesToTime(totalMin),
+      atrasos: "00:00",
+    };
+  }
+
+  const extraMin = Math.max(totalMin - jornadaMin, 0);
+  const he60Min = Math.min(extraMin, 120);
+  const he100Min = Math.max(extraMin - 120, 0);
+  const atrasosMin = totalMin < jornadaMin ? jornadaMin - totalMin : 0;
+
+  return {
+    he_60: minutesToTime(he60Min),
+    he_100: minutesToTime(he100Min),
+    atrasos: minutesToTime(atrasosMin),
+  };
+}
+
 export function addTimes(times: (string | null | undefined)[]): string {
   const total = times.reduce((acc, t) => acc + timeToMinutes(t), 0);
   return minutesToTime(total);

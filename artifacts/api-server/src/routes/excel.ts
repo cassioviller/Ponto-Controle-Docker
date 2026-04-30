@@ -16,6 +16,7 @@ import {
   getDaysInMonth,
   getDiaSemana,
   calcTotalHoras,
+  calcHEAndAtrasos,
 } from "../lib/timeUtils";
 
 const router = Router();
@@ -318,9 +319,11 @@ router.post("/importar", async (req: Request, res: Response) => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(rawBody.buffer as ArrayBuffer);
 
-    const ws = wb.getWorksheet(1) ?? wb.getWorksheet("Registros de Ponto");
+    const ws =
+      wb.getWorksheet("Registros de Ponto") ??
+      wb.getWorksheet(1);
     if (!ws) {
-      res.status(400).json({ error: "Planilha não encontrada no arquivo" });
+      res.status(400).json({ error: "Planilha 'Registros de Ponto' não encontrada no arquivo. Use o modelo fornecido pelo sistema." });
       return;
     }
 
@@ -379,6 +382,14 @@ router.post("/importar", async (req: Request, res: Response) => {
 
       const { total_horas } = calcTotalHoras(entrada, saida, intervalo);
 
+      const autoHE = calcHEAndAtrasos(
+        entrada,
+        saida,
+        intervalo,
+        funcionario.jornada_diaria,
+        dataStr,
+      );
+
       const existing = await db
         .select()
         .from(registrosPontoTable)
@@ -396,9 +407,9 @@ router.post("/importar", async (req: Request, res: Response) => {
         saida,
         intervalo,
         total_horas,
-        he_60: he60,
-        he_100: he100,
-        atrasos,
+        he_60: he60 ?? autoHE.he_60,
+        he_100: he100 ?? autoHE.he_100,
+        atrasos: atrasos ?? autoHE.atrasos,
         faltas,
         observacoes,
         atualizado_em: new Date(),

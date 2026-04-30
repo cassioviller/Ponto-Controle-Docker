@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import {
   calcTotalHoras,
+  calcHEAndAtrasos,
   getDaysInMonth,
   parseMes,
   getCurrentTimeStr,
@@ -141,7 +142,22 @@ router.post("/registros", async (req, res) => {
   try {
     const body = UpsertRegistroBody.parse(req.body);
 
+    const [funcionario] = await db
+      .select()
+      .from(funcionariosTable)
+      .where(eq(funcionariosTable.id, body.funcionario_id));
+
+    const jornadaDiaria = funcionario?.jornada_diaria ?? "08:00";
+
     const { total_horas } = calcTotalHoras(body.entrada, body.saida, body.intervalo);
+
+    const autoHE = calcHEAndAtrasos(
+      body.entrada,
+      body.saida,
+      body.intervalo,
+      jornadaDiaria,
+      body.data,
+    );
 
     const existing = await db
       .select()
@@ -160,9 +176,9 @@ router.post("/registros", async (req, res) => {
       saida: body.saida ?? null,
       intervalo: body.intervalo ?? null,
       total_horas: total_horas ?? null,
-      he_60: body.he_60 ?? null,
-      he_100: body.he_100 ?? null,
-      atrasos: body.atrasos ?? null,
+      he_60: body.he_60 !== undefined ? body.he_60 : autoHE.he_60,
+      he_100: body.he_100 !== undefined ? body.he_100 : autoHE.he_100,
+      atrasos: body.atrasos !== undefined ? body.atrasos : autoHE.atrasos,
       faltas: body.faltas ?? null,
       observacoes: body.observacoes ?? null,
       atualizado_em: new Date(),
@@ -217,6 +233,11 @@ router.post("/ponto/bater", async (req, res) => {
     let row;
     if (existing.length > 0 && existing[0]) {
       const prevReg = existing[0];
+      const heAuto =
+        body.tipo === "saida"
+          ? calcHEAndAtrasos(prevReg.entrada, horario, prevReg.intervalo, funcionario.jornada_diaria, data)
+          : { he_60: undefined, he_100: undefined, atrasos: undefined };
+
       const updateFields =
         body.tipo === "entrada"
           ? { entrada: horario, atualizado_em: new Date() }
@@ -224,6 +245,9 @@ router.post("/ponto/bater", async (req, res) => {
               saida: horario,
               atualizado_em: new Date(),
               total_horas: calcTotalHoras(prevReg.entrada, horario, prevReg.intervalo).total_horas,
+              he_60: heAuto.he_60 ?? null,
+              he_100: heAuto.he_100 ?? null,
+              atrasos: heAuto.atrasos ?? null,
             };
 
       [row] = await db
