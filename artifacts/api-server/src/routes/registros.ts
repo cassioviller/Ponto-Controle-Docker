@@ -20,6 +20,7 @@ import {
   getCurrentDateStr,
   getDiaSemana,
   isDomFeriado,
+  timeToMinutes,
 } from "../lib/timeUtils";
 
 const router = Router();
@@ -120,7 +121,7 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       he_100: minutesToTime(heTotal100),
       atrasos: minutesToTime(atrasosTotal),
       faltas_dia: faltasDia,
-      faltas_horas: minutesToTime(faltasDia * 480),
+      faltas_horas: minutesToTime(faltasDia * (timeToMinutes(funcionario.jornada_diaria) || 480)),
       dias_trabalhados: diasTrabalhados,
       dom_feriados: domFeriados,
     };

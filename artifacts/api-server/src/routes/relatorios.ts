@@ -9,7 +9,7 @@ import {
   GetConsolidadoQueryParams,
   GetResumoQueryParams,
 } from "@workspace/api-zod";
-import { parseMes, getDaysInMonth, isDomFeriado } from "../lib/timeUtils";
+import { parseMes, getDaysInMonth, isDomFeriado, timeToMinutes } from "../lib/timeUtils";
 
 const router = Router();
 
@@ -162,7 +162,8 @@ router.get("/resumo", async (req, res) => {
         return acc + (h ?? 0) * 60 + (m ?? 0);
       }, 0);
       const faltasDia = regs.reduce((acc, r) => acc + parseFloat(r.faltas ?? "0"), 0);
-      const faltasHorasMin = Math.round(faltasDia * 480);
+      const jornadaMinFuncionario = timeToMinutes(f.jornada_diaria) || 480;
+      const faltasHorasMin = Math.round(faltasDia * jornadaMinFuncionario);
 
       return {
         id: f.id,
