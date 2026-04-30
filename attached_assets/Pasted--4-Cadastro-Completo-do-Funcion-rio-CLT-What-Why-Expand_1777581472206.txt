@@ -1,0 +1,29 @@
+#4 - Cadastro Completo do Funcionário CLT
+What & Why
+Expand the employee registration form to include all CLT data fields shown in the "Relação de Dados Funcionario CLT" document, plus file attachment support (images, PDFs, DOCX). This gives the system a complete employee record matching real-world Brazilian CLT onboarding requirements.
+
+Done looks like
+The employee form (side drawer) includes all new fields organized in clear sections
+Dados do Contrato: Empresa, Vínculo (already exists), Função/Cargo (already exists), Data do Registro/Contrato, Salário
+Dados Pessoais: Nome completo (already exists), Endereço, Número, Bairro, Cidade, CEP, Estado civil (select: Solteiro, Casado, Divorciado, Viúvo, União estável), Raça/cor (select options per IBGE), Horário (text), Escolaridade (select: Fundamental incompleto, Fundamental completo, Médio incompleto, Médio completo, Superior incompleto, Superior completo, Pós-graduação), Nº PIS
+Documentos: File upload area that accepts images (JPG, PNG), PDFs, and DOCX files. Multiple files can be attached. Uploaded files are listed with their name, type icon, and a remove button. Files are stored server-side (using the existing API server) and linked to the employee record.
+The database schema is migrated to include all new columns; existing employees are unaffected (all new fields are nullable)
+The employee list/table still works correctly; new fields are only shown in the detail drawer
+File uploads persist across page reloads
+Out of scope
+Viewing/previewing file contents inline (just upload, list, and delete)
+Electronic signature or document generation from the data
+Changes to the time sheet or punch clock pages
+Steps
+Database schema migration — Add all new text/date/decimal columns to funcionariosTable (all nullable): empresa, data_contrato, salario, endereco, numero, bairro, cidade, cep, estado_civil, raca_cor, horario, escolaridade, pis. Also create a funcionario_arquivos table with columns: id, funcionario_id (FK), nome_arquivo, tipo_arquivo, caminho, criado_em.
+
+API endpoints for employees — Update the existing employee CRUD endpoints to accept and return all new fields. Add a file upload endpoint (POST /api/funcionarios/:id/arquivos) using multipart/form-data that saves the file to disk (e.g. uploads/ directory) and records metadata in funcionario_arquivos. Add a delete endpoint (DELETE /api/funcionarios/:id/arquivos/:arquivoId) and a list endpoint (GET /api/funcionarios/:id/arquivos).
+
+Frontend form — new text/select fields — Expand the employee drawer form with the new sections (Dados do Contrato, Dados Pessoais) and all new fields. Use select dropdowns for Estado civil, Raça/cor, and Escolaridade. Group fields visually with section headers inside the drawer.
+
+Frontend form — file attachments — Add a "Documentos" section at the bottom of the drawer with a drag-and-drop or click-to-upload area. On file selection, upload immediately to the API and append the result to the displayed list. Show each file with a name, a small type icon (image/pdf/doc), and a trash/remove button. Fetch existing files when opening the drawer for an existing employee.
+
+Relevant files
+lib/db/src/schema/funcionarios.ts
+artifacts/ponto/src/pages/Funcionarios.tsx
+artifacts/api-server/src/index.ts

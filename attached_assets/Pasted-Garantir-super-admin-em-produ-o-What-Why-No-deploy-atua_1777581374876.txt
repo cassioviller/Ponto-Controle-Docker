@@ -1,0 +1,40 @@
+Garantir super admin em produção
+What & Why
+No deploy atual via Dockerfile/EasyPanel o super admin não foi criado no banco de produção. Hoje o runSeed() roda depois do app.listen() e qualquer erro é silenciosamente capturado como "Seed failed (non-fatal)", então o servidor sobe sem super admin e ninguém percebe. Além disso, não existe nenhum comando manual para criar/resetar o super admin em produção sem mexer no banco direto. Esta tarefa torna a criação do super admin confiável e operável.
+
+Done looks like
+Em produção, se o seed inicial falhar, o container falha alto (EasyPanel mostra o erro e tenta restart), em vez de subir um servidor sem super admin.
+Nos logs de startup fica claro o que aconteceu com o super admin: criado, já existe ou falhou: <motivo> (com o erro real).
+Existe um comando CLI que um operador pode rodar via docker exec no container do EasyPanel para criar ou redefinir o super admin a partir das variáveis SUPER_ADMIN_EMAIL e SUPER_ADMIN_SENHA, sem precisar de redeploy.
+Esse comando é idempotente: se o super admin já existe, atualiza a senha (e marca ativo=true); se não existe, cria.
+O DEPLOY.md documenta:
+Como o seed automático se comporta agora (falha alto).
+Como rodar o comando manual no EasyPanel quando precisar criar/resetar o super admin (incluindo o docker exec de exemplo).
+Em desenvolvimento (Replit) o comportamento continua igual: o servidor sobe e o seed roda automaticamente, criando super admin + empresa demo + funcionários como hoje.
+Out of scope
+Trocar a senha do super admin pelo próprio app (já existe a Task #10 para isso).
+Mudar o esquema de roles/permissões.
+Migrar dados existentes em produção (se já houver registros, eles continuam intactos).
+Adicionar testes E2E (Playwright) para o fluxo de seed — só logs + verificação manual.
+Steps
+Rodar seed antes de aceitar tráfego. Reorganizar o startup do API server para executar runDbInit() e runSeed() antes do app.listen(). Em produção (NODE_ENV=production), se qualquer um dos dois lançar exceção, o processo deve sair com código de erro (sem o try/catch "non-fatal" atual). Em desenvolvimento, manter o comportamento tolerante para não atrapalhar o fluxo no Replit.
+Logs claros no seed do super admin. Ajustar runSeed() para logar explicitamente um dos três estados ao final do bloco do super admin: criado, já existia, ou falhou (com o erro). Os outros blocos (empresa demo, funcionários) seguem como estão.
+Comando CLI seed:super-admin. Criar um script standalone no pacote @workspace/db (ex.: lib/db/src/bin/seed-super-admin.ts) e expor como script seed:super-admin no package.json desse pacote. Comportamento:
+Lê SUPER_ADMIN_EMAIL e SUPER_ADMIN_SENHA do ambiente (com os mesmos defaults atuais do seed).
+Se o usuário com empresa_id IS NULL e esse e-mail já existe: atualiza senha_hash (bcrypt) e ativo=true.
+Se não existe: insere com role='super_admin', empresa_id=NULL, ativo=true.
+Loga o resultado e sai com código 0 em sucesso, 1 em erro.
+Disponibilizar o comando no container. Garantir que o script CLI funcione no estágio runner do Dockerfile (compilado para dist/, com node_modules disponíveis), de modo que docker exec <container> pnpm --filter @workspace/db run seed:super-admin (ou equivalente direto via node) funcione no EasyPanel.
+Atualizar DEPLOY.md. Documentar:
+Que o seed agora falha alto em produção (e que isso é proposital).
+Como executar o comando manual de criar/resetar super admin no EasyPanel (com o docker exec de exemplo e as variáveis SUPER_ADMIN_EMAIL/SUPER_ADMIN_SENHA).
+Recomendação de redefinir a senha após o primeiro login.
+Relevant files
+artifacts/api-server/src/index.ts
+lib/db/src/seed.ts:143-204
+lib/db/src/init.ts
+lib/db/package.json
+Dockerfile
+DEPLOY.md
+Dependencies
+Make the app ready for EasyPanel deployment (serve frontend from API server)

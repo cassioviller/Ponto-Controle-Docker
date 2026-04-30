@@ -146,22 +146,30 @@ export async function runSeed(): Promise<void> {
   const superAdminEmail = process.env["SUPER_ADMIN_EMAIL"] ?? "super@admin.com";
   const superAdminSenha = process.env["SUPER_ADMIN_SENHA"] ?? "super123";
 
-  const [existingSuper] = await db
-    .select()
-    .from(usuariosTable)
-    .where(and(isNull(usuariosTable.empresa_id), eq(usuariosTable.email, superAdminEmail)));
+  try {
+    const [existingSuper] = await db
+      .select()
+      .from(usuariosTable)
+      .where(and(isNull(usuariosTable.empresa_id), eq(usuariosTable.email, superAdminEmail)));
 
-  if (!existingSuper) {
-    console.log(`[seed] Creating super admin (${superAdminEmail})...`);
-    const senhaHash = await bcrypt.hash(superAdminSenha, 10);
-    await db.insert(usuariosTable).values({
-      empresa_id: null,
-      nome: "Super Administrador",
-      email: superAdminEmail,
-      senha_hash: senhaHash,
-      role: "super_admin",
-      ativo: true,
-    });
+    if (!existingSuper) {
+      const senhaHash = await bcrypt.hash(superAdminSenha, 10);
+      await db.insert(usuariosTable).values({
+        empresa_id: null,
+        nome: "Super Administrador",
+        email: superAdminEmail,
+        senha_hash: senhaHash,
+        role: "super_admin",
+        ativo: true,
+      });
+      console.log(`[seed] super admin: criado (${superAdminEmail})`);
+    } else {
+      console.log(`[seed] super admin: já existia (${superAdminEmail})`);
+    }
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : String(err);
+    console.error(`[seed] super admin: falhou (${superAdminEmail}): ${reason}`);
+    throw err;
   }
 
   const existingEmpresas = await db.select().from(empresasTable);

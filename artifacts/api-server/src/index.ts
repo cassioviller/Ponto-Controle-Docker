@@ -16,23 +16,45 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, async (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+const isProduction = process.env["NODE_ENV"] === "production";
 
-  logger.info({ port }, "Server listening");
-
+async function startup(): Promise<void> {
   try {
     await runDbInit();
   } catch (initErr: unknown) {
-    logger.error({ err: initErr }, "DB init failed (non-fatal)");
+    if (isProduction) {
+      logger.error(
+        { err: initErr },
+        "DB init failed in production — aborting startup",
+      );
+      throw initErr;
+    }
+    logger.error({ err: initErr }, "DB init failed (non-fatal in dev)");
   }
 
   try {
     await runSeed();
   } catch (seedErr: unknown) {
-    logger.error({ err: seedErr }, "Seed failed (non-fatal)");
+    if (isProduction) {
+      logger.error(
+        { err: seedErr },
+        "Seed failed in production — aborting startup",
+      );
+      throw seedErr;
+    }
+    logger.error({ err: seedErr }, "Seed failed (non-fatal in dev)");
   }
+
+  app.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port }, "Server listening");
+  });
+}
+
+startup().catch((err: unknown) => {
+  logger.error({ err }, "Fatal error during startup");
+  process.exit(1);
 });
