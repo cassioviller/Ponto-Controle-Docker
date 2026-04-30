@@ -34,6 +34,19 @@ export const GetFuncionariosResponseItem = zod.object({
   transporte: zod.boolean(),
   jornada_diaria: zod.string(),
   ativo: zod.boolean(),
+  empresa: zod.string().nullish(),
+  data_contrato: zod.string().nullish(),
+  salario: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  numero: zod.string().nullish(),
+  bairro: zod.string().nullish(),
+  cidade: zod.string().nullish(),
+  cep: zod.string().nullish(),
+  estado_civil: zod.string().nullish(),
+  raca_cor: zod.string().nullish(),
+  horario: zod.string().nullish(),
+  escolaridade: zod.string().nullish(),
+  pis: zod.string().nullish(),
   criado_em: zod.string(),
 });
 export const GetFuncionariosResponse = zod.array(GetFuncionariosResponseItem);
@@ -53,6 +66,19 @@ export const CreateFuncionarioBody = zod.object({
   transporte: zod.boolean().optional(),
   jornada_diaria: zod.string().optional(),
   ativo: zod.boolean().optional(),
+  empresa: zod.string().nullish(),
+  data_contrato: zod.string().nullish(),
+  salario: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  numero: zod.string().nullish(),
+  bairro: zod.string().nullish(),
+  cidade: zod.string().nullish(),
+  cep: zod.string().nullish(),
+  estado_civil: zod.string().nullish(),
+  raca_cor: zod.string().nullish(),
+  horario: zod.string().nullish(),
+  escolaridade: zod.string().nullish(),
+  pis: zod.string().nullish(),
 });
 
 /**
@@ -73,6 +99,19 @@ export const GetFuncionarioResponse = zod.object({
   transporte: zod.boolean(),
   jornada_diaria: zod.string(),
   ativo: zod.boolean(),
+  empresa: zod.string().nullish(),
+  data_contrato: zod.string().nullish(),
+  salario: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  numero: zod.string().nullish(),
+  bairro: zod.string().nullish(),
+  cidade: zod.string().nullish(),
+  cep: zod.string().nullish(),
+  estado_civil: zod.string().nullish(),
+  raca_cor: zod.string().nullish(),
+  horario: zod.string().nullish(),
+  escolaridade: zod.string().nullish(),
+  pis: zod.string().nullish(),
   criado_em: zod.string(),
 });
 
@@ -93,6 +132,19 @@ export const UpdateFuncionarioBody = zod.object({
   transporte: zod.boolean().optional(),
   jornada_diaria: zod.string().optional(),
   ativo: zod.boolean().optional(),
+  empresa: zod.string().nullish(),
+  data_contrato: zod.string().nullish(),
+  salario: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  numero: zod.string().nullish(),
+  bairro: zod.string().nullish(),
+  cidade: zod.string().nullish(),
+  cep: zod.string().nullish(),
+  estado_civil: zod.string().nullish(),
+  raca_cor: zod.string().nullish(),
+  horario: zod.string().nullish(),
+  escolaridade: zod.string().nullish(),
+  pis: zod.string().nullish(),
 });
 
 export const UpdateFuncionarioResponse = zod.object({
@@ -106,6 +158,19 @@ export const UpdateFuncionarioResponse = zod.object({
   transporte: zod.boolean(),
   jornada_diaria: zod.string(),
   ativo: zod.boolean(),
+  empresa: zod.string().nullish(),
+  data_contrato: zod.string().nullish(),
+  salario: zod.string().nullish(),
+  endereco: zod.string().nullish(),
+  numero: zod.string().nullish(),
+  bairro: zod.string().nullish(),
+  cidade: zod.string().nullish(),
+  cep: zod.string().nullish(),
+  estado_civil: zod.string().nullish(),
+  raca_cor: zod.string().nullish(),
+  horario: zod.string().nullish(),
+  escolaridade: zod.string().nullish(),
+  pis: zod.string().nullish(),
   criado_em: zod.string(),
 });
 
@@ -117,6 +182,48 @@ export const DeleteFuncionarioParams = zod.object({
 });
 
 export const DeleteFuncionarioResponse = zod.object({
+  message: zod.string(),
+});
+
+/**
+ * @summary Listar arquivos do funcionário
+ */
+export const GetFuncionarioArquivosParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetFuncionarioArquivosResponseItem = zod.object({
+  id: zod.number(),
+  funcionario_id: zod.number(),
+  nome_arquivo: zod.string(),
+  tipo_arquivo: zod.string(),
+  caminho: zod.string(),
+  criado_em: zod.string(),
+});
+export const GetFuncionarioArquivosResponse = zod.array(
+  GetFuncionarioArquivosResponseItem,
+);
+
+/**
+ * @summary Enviar arquivo do funcionário
+ */
+export const UploadFuncionarioArquivoParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UploadFuncionarioArquivoBody = zod.object({
+  file: zod.instanceof(File),
+});
+
+/**
+ * @summary Remover arquivo do funcionário
+ */
+export const DeleteFuncionarioArquivoParams = zod.object({
+  id: zod.coerce.number(),
+  arquivoId: zod.coerce.number(),
+});
+
+export const DeleteFuncionarioArquivoResponse = zod.object({
   message: zod.string(),
 });
 
@@ -143,6 +250,19 @@ export const GetRegistrosFuncionarioResponse = zod.object({
     transporte: zod.boolean(),
     jornada_diaria: zod.string(),
     ativo: zod.boolean(),
+    empresa: zod.string().nullish(),
+    data_contrato: zod.string().nullish(),
+    salario: zod.string().nullish(),
+    endereco: zod.string().nullish(),
+    numero: zod.string().nullish(),
+    bairro: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    cep: zod.string().nullish(),
+    estado_civil: zod.string().nullish(),
+    raca_cor: zod.string().nullish(),
+    horario: zod.string().nullish(),
+    escolaridade: zod.string().nullish(),
+    pis: zod.string().nullish(),
     criado_em: zod.string(),
   }),
   mes: zod.string(),

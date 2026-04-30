@@ -28,6 +28,19 @@ export interface Funcionario {
   transporte: boolean;
   jornada_diaria: string;
   ativo: boolean;
+  empresa?: string | null;
+  data_contrato?: string | null;
+  salario?: string | null;
+  endereco?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  cep?: string | null;
+  estado_civil?: string | null;
+  raca_cor?: string | null;
+  horario?: string | null;
+  escolaridade?: string | null;
+  pis?: string | null;
   criado_em: string;
 }
 
@@ -61,6 +74,19 @@ export interface CreateFuncionarioBody {
   transporte?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
+  empresa?: string | null;
+  data_contrato?: string | null;
+  salario?: string | null;
+  endereco?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  cep?: string | null;
+  estado_civil?: string | null;
+  raca_cor?: string | null;
+  horario?: string | null;
+  escolaridade?: string | null;
+  pis?: string | null;
 }
 
 export interface UpdateFuncionarioBody {
@@ -73,6 +99,28 @@ export interface UpdateFuncionarioBody {
   transporte?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
+  empresa?: string | null;
+  data_contrato?: string | null;
+  salario?: string | null;
+  endereco?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  cep?: string | null;
+  estado_civil?: string | null;
+  raca_cor?: string | null;
+  horario?: string | null;
+  escolaridade?: string | null;
+  pis?: string | null;
+}
+
+export interface FuncionarioArquivo {
+  id: number;
+  funcionario_id: number;
+  nome_arquivo: string;
+  tipo_arquivo: string;
+  caminho: string;
+  criado_em: string;
 }
 
 export interface RegistroPonto {
@@ -190,6 +238,10 @@ export type GetFuncionariosParams = {
   situacao?: string;
   vinculo?: string;
   ativo?: boolean;
+};
+
+export type UploadFuncionarioArquivoBody = {
+  file: Blob;
 };
 
 export type GetRegistrosFuncionarioParams = {

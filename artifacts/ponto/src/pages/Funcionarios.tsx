@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import {
   useGetFuncionarios,
   useCreateFuncionario,
@@ -13,6 +13,7 @@ import type {
   UpdateFuncionarioBody,
   CreateFuncionarioBodyVinculo,
   CreateFuncionarioBodySituacao,
+  FuncionarioArquivo,
 } from "@workspace/api-client-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { baseUrl, authHeaders } from "@/lib/utils";
@@ -31,6 +32,26 @@ const SITUACAO_LABEL: Record<string, string> = {
   Aviso: "Aviso",
   Ferias: "Férias",
 };
+
+const ESTADOS_CIVIS = [
+  "Solteiro",
+  "Casado",
+  "Divorciado",
+  "Viúvo",
+  "União estável",
+];
+
+const RACAS_COR = ["Branca", "Preta", "Parda", "Amarela", "Indígena", "Não declarada"];
+
+const ESCOLARIDADES = [
+  "Fundamental incompleto",
+  "Fundamental completo",
+  "Médio incompleto",
+  "Médio completo",
+  "Superior incompleto",
+  "Superior completo",
+  "Pós-graduação",
+];
 
 const DIAS_SEMANA = [
   { num: 1, label: "Segunda" },
@@ -60,7 +81,23 @@ function defaultJornada(jornada_diaria: string): JornadaDia[] {
   }));
 }
 
-const EMPTY_FORM: Partial<CreateFuncionarioBody & { id?: number }> = {
+type FormState = Partial<CreateFuncionarioBody & { id?: number }> & {
+  empresa?: string | null;
+  data_contrato?: string | null;
+  salario?: string | null;
+  endereco?: string | null;
+  numero?: string | null;
+  bairro?: string | null;
+  cidade?: string | null;
+  cep?: string | null;
+  estado_civil?: string | null;
+  raca_cor?: string | null;
+  horario?: string | null;
+  escolaridade?: string | null;
+  pis?: string | null;
+};
+
+const EMPTY_FORM: FormState = {
   codigo: undefined,
   nome: "",
   cargo: "",
@@ -70,7 +107,27 @@ const EMPTY_FORM: Partial<CreateFuncionarioBody & { id?: number }> = {
   transporte: false,
   jornada_diaria: "08:00",
   ativo: true,
+  empresa: "",
+  data_contrato: "",
+  salario: "",
+  endereco: "",
+  numero: "",
+  bairro: "",
+  cidade: "",
+  cep: "",
+  estado_civil: "",
+  raca_cor: "",
+  horario: "",
+  escolaridade: "",
+  pis: "",
 };
+
+function fileTypeIcon(mime: string): string {
+  if (mime.startsWith("image/")) return "🖼️";
+  if (mime === "application/pdf") return "📄";
+  if (mime.includes("word") || mime.includes("officedocument")) return "📝";
+  return "📎";
+}
 
 export default function Funcionarios() {
   const { data, isLoading } = useGetFuncionarios();
@@ -83,11 +140,15 @@ export default function Funcionarios() {
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState<typeof EMPTY_FORM>({ ...EMPTY_FORM });
+  const [form, setForm] = useState<FormState>({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [jornadas, setJornadas] = useState<JornadaDia[]>(defaultJornada("08:00"));
   const [loadingJornadas, setLoadingJornadas] = useState(false);
+  const [arquivos, setArquivos] = useState<FuncionarioArquivo[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   async function loadJornadas(funcionarioId: number, jornadaDiaria: string) {
     setLoadingJornadas(true);
@@ -130,10 +191,29 @@ export default function Funcionarios() {
     }
   }
 
+  async function loadArquivos(funcionarioId: number) {
+    try {
+      const base = baseUrl();
+      const resp = await fetch(`${base}/api/funcionarios/${funcionarioId}/arquivos`, {
+        headers: authHeaders(),
+      });
+      if (resp.ok) {
+        const list = (await resp.json()) as FuncionarioArquivo[];
+        setArquivos(list);
+      } else {
+        setArquivos([]);
+      }
+    } catch {
+      setArquivos([]);
+    }
+  }
+
   function openNew() {
     setForm({ ...EMPTY_FORM });
     setEditId(null);
     setJornadas(defaultJornada("08:00"));
+    setArquivos([]);
+    setUploadError(null);
     setDrawerOpen(true);
   }
 
@@ -148,10 +228,25 @@ export default function Funcionarios() {
       transporte: f.transporte,
       jornada_diaria: f.jornada_diaria,
       ativo: f.ativo,
+      empresa: f.empresa ?? "",
+      data_contrato: f.data_contrato ?? "",
+      salario: f.salario ?? "",
+      endereco: f.endereco ?? "",
+      numero: f.numero ?? "",
+      bairro: f.bairro ?? "",
+      cidade: f.cidade ?? "",
+      cep: f.cep ?? "",
+      estado_civil: f.estado_civil ?? "",
+      raca_cor: f.raca_cor ?? "",
+      horario: f.horario ?? "",
+      escolaridade: f.escolaridade ?? "",
+      pis: f.pis ?? "",
     });
     setEditId(f.id);
+    setUploadError(null);
     setDrawerOpen(true);
     loadJornadas(f.id, f.jornada_diaria);
+    loadArquivos(f.id);
   }
 
   function updateJornada(diaSemana: number, field: keyof JornadaDia, value: string | boolean) {
@@ -178,16 +273,42 @@ export default function Funcionarios() {
     });
   }
 
+  function buildBody(): CreateFuncionarioBody {
+    const { id: _ignored, ...rest } = form as CreateFuncionarioBody & { id?: number };
+    // Convert empty strings to null for optional fields so the DB stores NULL.
+    const body: CreateFuncionarioBody = { ...rest } as CreateFuncionarioBody;
+    const opt = [
+      "empresa",
+      "data_contrato",
+      "salario",
+      "endereco",
+      "numero",
+      "bairro",
+      "cidade",
+      "cep",
+      "estado_civil",
+      "raca_cor",
+      "horario",
+      "escolaridade",
+      "pis",
+    ] as const;
+    const bodyAny = body as unknown as Record<string, unknown>;
+    for (const k of opt) {
+      if (bodyAny[k] === "") bodyAny[k] = null;
+    }
+    return body;
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
-      const { id: _ignored, ...formData } = form as CreateFuncionarioBody & { id?: number };
+      const formData = buildBody();
       let funcionarioId: number;
       if (editId) {
         await update.mutateAsync({ id: editId, data: formData as UpdateFuncionarioBody });
         funcionarioId = editId;
       } else {
-        const created = await create.mutateAsync({ data: formData as CreateFuncionarioBody });
+        const created = await create.mutateAsync({ data: formData });
         funcionarioId = (created as Funcionario).id;
       }
       await saveJornadas(funcionarioId);
@@ -204,7 +325,71 @@ export default function Funcionarios() {
     setDeleteConfirm(null);
   }
 
-  const setField = (k: string, v: string | boolean | number | undefined) =>
+  async function handleUploadFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    if (!editId) {
+      setUploadError("Salve o funcionário antes de anexar arquivos.");
+      return;
+    }
+    setUploadError(null);
+    setUploadingFile(true);
+    try {
+      const base = baseUrl();
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]!;
+        const fd = new FormData();
+        fd.append("file", file);
+        const resp = await fetch(`${base}/api/funcionarios/${editId}/arquivos`, {
+          method: "POST",
+          headers: authHeaders(),
+          body: fd,
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({} as { error?: string }));
+          throw new Error(data.error ?? `Falha ao enviar ${file.name}`);
+        }
+      }
+      await loadArquivos(editId);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Erro ao enviar arquivo");
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveArquivo(arquivoId: number) {
+    if (!editId) return;
+    const base = baseUrl();
+    const resp = await fetch(
+      `${base}/api/funcionarios/${editId}/arquivos/${arquivoId}`,
+      { method: "DELETE", headers: authHeaders() },
+    );
+    if (resp.ok) {
+      await loadArquivos(editId);
+    }
+  }
+
+  async function handleDownloadArquivo(arquivo: FuncionarioArquivo) {
+    if (!editId) return;
+    const base = baseUrl();
+    const resp = await fetch(
+      `${base}/api/funcionarios/${editId}/arquivos/${arquivo.id}/download`,
+      { headers: authHeaders() },
+    );
+    if (!resp.ok) return;
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = arquivo.nome_arquivo;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  const setField = (k: string, v: string | boolean | number | null | undefined) =>
     setForm((p) => ({ ...p, [k]: v }));
 
   return (
@@ -303,120 +488,267 @@ export default function Funcionarios() {
 
       {drawerOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-end z-50">
-          <div className="bg-white w-full max-w-xl h-full flex flex-col shadow-2xl">
+          <div className="bg-white w-full max-w-2xl h-full flex flex-col shadow-2xl">
             <div className="bg-[#1B2A4A] px-6 py-4 text-white">
               <h2 className="text-base font-bold">
                 {editId ? "Editar Funcionário" : "Novo Funcionário"}
               </h2>
             </div>
-            <div className="flex-1 overflow-auto p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
-                  <input
-                    type="number"
-                    value={form.codigo ?? ""}
-                    onChange={(e) => setField("codigo", parseInt(e.target.value) || undefined)}
-                    className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                    placeholder="1"
-                  />
+            <div className="flex-1 overflow-auto p-6 space-y-6">
+              {/* ----- Dados do Contrato ----- */}
+              <section>
+                <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3 border-b pb-1">
+                  Dados do Contrato
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
+                    <input
+                      type="number"
+                      value={form.codigo ?? ""}
+                      onChange={(e) => setField("codigo", parseInt(e.target.value) || undefined)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="1"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Empresa</label>
+                    <input
+                      type="text"
+                      value={form.empresa ?? ""}
+                      onChange={(e) => setField("empresa", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="Nome da empresa contratante"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Vínculo</label>
+                    <select
+                      value={form.vinculo ?? "CLT"}
+                      onChange={(e) => setField("vinculo", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    >
+                      {VINCULOS.map((v) => (
+                        <option key={v} value={v}>{VINCULO_LABEL[v]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Função / Cargo</label>
+                    <input
+                      type="text"
+                      value={form.cargo ?? ""}
+                      onChange={(e) => setField("cargo", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="Ex: Vendedor"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Data do Contrato</label>
+                    <input
+                      type="date"
+                      value={form.data_contrato ?? ""}
+                      onChange={(e) => setField("data_contrato", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Salário (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.salario ?? ""}
+                      onChange={(e) => setField("salario", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Situação</label>
+                    <select
+                      value={form.situacao ?? "Ativo"}
+                      onChange={(e) => setField("situacao", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    >
+                      {SITUACOES.map((s) => (
+                        <option key={s} value={s}>{SITUACAO_LABEL[s]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Jornada Diária</label>
+                    <input
+                      type="text"
+                      value={form.jornada_diaria ?? "08:00"}
+                      onChange={(e) => setField("jornada_diaria", e.target.value)}
+                      placeholder="08:00"
+                      className="w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Jornada Diária</label>
-                  <input
-                    type="text"
-                    value={form.jornada_diaria ?? "08:00"}
-                    onChange={(e) => setField("jornada_diaria", e.target.value)}
-                    placeholder="08:00"
-                    className="w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                  />
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="adiantamento"
+                      checked={form.adiantamento ?? false}
+                      onChange={(e) => setField("adiantamento", e.target.checked)}
+                      className="w-4 h-4 accent-[#4A90D9]"
+                    />
+                    <label htmlFor="adiantamento" className="text-sm text-gray-700">Adiantamento</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="transporte"
+                      checked={form.transporte ?? false}
+                      onChange={(e) => setField("transporte", e.target.checked)}
+                      className="w-4 h-4 accent-[#4A90D9]"
+                    />
+                    <label htmlFor="transporte" className="text-sm text-gray-700">Transporte</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="ativo"
+                      checked={form.ativo ?? true}
+                      onChange={(e) => setField("ativo", e.target.checked)}
+                      className="w-4 h-4 accent-[#4A90D9]"
+                    />
+                    <label htmlFor="ativo" className="text-sm text-gray-700">Ativo</label>
+                  </div>
                 </div>
-              </div>
+              </section>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo *</label>
-                <input
-                  type="text"
-                  value={form.nome ?? ""}
-                  onChange={(e) => setField("nome", e.target.value)}
-                  className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                  placeholder="Nome do funcionário"
-                />
-              </div>
+              {/* ----- Dados Pessoais ----- */}
+              <section>
+                <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3 border-b pb-1">
+                  Dados Pessoais
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nome completo *</label>
+                    <input
+                      type="text"
+                      value={form.nome ?? ""}
+                      onChange={(e) => setField("nome", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="Nome do funcionário"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Endereço</label>
+                    <input
+                      type="text"
+                      value={form.endereco ?? ""}
+                      onChange={(e) => setField("endereco", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="Rua / Avenida"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Número</label>
+                    <input
+                      type="text"
+                      value={form.numero ?? ""}
+                      onChange={(e) => setField("numero", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Bairro</label>
+                    <input
+                      type="text"
+                      value={form.bairro ?? ""}
+                      onChange={(e) => setField("bairro", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Cidade</label>
+                    <input
+                      type="text"
+                      value={form.cidade ?? ""}
+                      onChange={(e) => setField("cidade", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
+                    <input
+                      type="text"
+                      value={form.cep ?? ""}
+                      onChange={(e) => setField("cep", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="00000-000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Estado civil</label>
+                    <select
+                      value={form.estado_civil ?? ""}
+                      onChange={(e) => setField("estado_civil", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    >
+                      <option value="">— selecione —</option>
+                      {ESTADOS_CIVIS.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Raça / Cor</label>
+                    <select
+                      value={form.raca_cor ?? ""}
+                      onChange={(e) => setField("raca_cor", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    >
+                      <option value="">— selecione —</option>
+                      {RACAS_COR.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Horário</label>
+                    <input
+                      type="text"
+                      value={form.horario ?? ""}
+                      onChange={(e) => setField("horario", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="Ex: 08:00 às 17:00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Escolaridade</label>
+                    <select
+                      value={form.escolaridade ?? ""}
+                      onChange={(e) => setField("escolaridade", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                    >
+                      <option value="">— selecione —</option>
+                      {ESCOLARIDADES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Nº PIS</label>
+                    <input
+                      type="text"
+                      value={form.pis ?? ""}
+                      onChange={(e) => setField("pis", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="000.00000.00-0"
+                    />
+                  </div>
+                </div>
+              </section>
 
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Cargo</label>
-                <input
-                  type="text"
-                  value={form.cargo ?? ""}
-                  onChange={(e) => setField("cargo", e.target.value)}
-                  className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                  placeholder="Ex: Vendedor"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Vínculo</label>
-                  <select
-                    value={form.vinculo ?? "CLT"}
-                    onChange={(e) => setField("vinculo", e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                  >
-                    {VINCULOS.map((v) => (
-                      <option key={v} value={v}>{VINCULO_LABEL[v]}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Situação</label>
-                  <select
-                    value={form.situacao ?? "Ativo"}
-                    onChange={(e) => setField("situacao", e.target.value)}
-                    className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                  >
-                    {SITUACOES.map((s) => (
-                      <option key={s} value={s}>{SITUACAO_LABEL[s]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="adiantamento"
-                    checked={form.adiantamento ?? false}
-                    onChange={(e) => setField("adiantamento", e.target.checked)}
-                    className="w-4 h-4 accent-[#4A90D9]"
-                  />
-                  <label htmlFor="adiantamento" className="text-sm text-gray-700">Adiantamento</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="transporte"
-                    checked={form.transporte ?? false}
-                    onChange={(e) => setField("transporte", e.target.checked)}
-                    className="w-4 h-4 accent-[#4A90D9]"
-                  />
-                  <label htmlFor="transporte" className="text-sm text-gray-700">Transporte</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="ativo"
-                    checked={form.ativo ?? true}
-                    onChange={(e) => setField("ativo", e.target.checked)}
-                    className="w-4 h-4 accent-[#4A90D9]"
-                  />
-                  <label htmlFor="ativo" className="text-sm text-gray-700">Ativo</label>
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3">
+              {/* ----- Jornada padrão ----- */}
+              <section>
+                <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3 border-b pb-1">
                   Jornada Padrão por Dia da Semana
                 </h3>
                 {loadingJornadas ? (
@@ -484,7 +816,78 @@ export default function Funcionarios() {
                     </table>
                   </div>
                 )}
-              </div>
+              </section>
+
+              {/* ----- Documentos ----- */}
+              <section>
+                <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3 border-b pb-1">
+                  Documentos
+                </h3>
+                {!editId && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    Salve o funcionário primeiro para anexar documentos.
+                  </p>
+                )}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleUploadFiles(e.dataTransfer.files);
+                  }}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center text-sm text-gray-500 transition-colors ${
+                    editId ? "border-gray-300 hover:bg-gray-50 cursor-pointer" : "border-gray-200 bg-gray-50"
+                  }`}
+                  onClick={() => editId && fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/jpg,image/png,application/pdf,.docx"
+                    className="hidden"
+                    onChange={(e) => handleUploadFiles(e.target.files)}
+                    disabled={!editId}
+                  />
+                  {uploadingFile
+                    ? "Enviando arquivo..."
+                    : "Arraste arquivos aqui ou clique para selecionar (JPG, PNG, PDF, DOCX)"}
+                </div>
+                {uploadError && (
+                  <p className="text-xs text-red-600 mt-2">{uploadError}</p>
+                )}
+                {arquivos.length > 0 && (
+                  <ul className="mt-3 space-y-1">
+                    {arquivos.map((a) => (
+                      <li
+                        key={a.id}
+                        className="flex items-center gap-2 px-3 py-2 border rounded bg-gray-50"
+                      >
+                        <span className="text-lg">{fileTypeIcon(a.tipo_arquivo)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadArquivo(a)}
+                          className="flex-1 text-left text-sm text-[#1B2A4A] hover:underline truncate"
+                          title={a.nome_arquivo}
+                        >
+                          {a.nome_arquivo}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveArquivo(a.id)}
+                          className="text-xs text-red-600 hover:text-red-800"
+                          aria-label="Remover"
+                        >
+                          🗑️
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
             </div>
 
             <div className="p-6 border-t flex gap-2 justify-end">

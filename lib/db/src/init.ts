@@ -77,6 +77,18 @@ CREATE TABLE IF NOT EXISTS feriados (
 
 CREATE INDEX IF NOT EXISTS idx_registros_ponto_func_data
   ON registros_ponto (funcionario_id, data);
+
+CREATE TABLE IF NOT EXISTS funcionario_arquivos (
+  id SERIAL PRIMARY KEY,
+  funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+  nome_arquivo TEXT NOT NULL,
+  tipo_arquivo TEXT NOT NULL,
+  caminho TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_funcionario_arquivos_func
+  ON funcionario_arquivos (funcionario_id);
 `;
 
 const SQL_MIGRATIONS = `
@@ -99,6 +111,31 @@ CREATE INDEX IF NOT EXISTS idx_jornadas_padrao_func ON jornadas_padrao (funciona
 ALTER TABLE usuarios ALTER COLUMN empresa_id DROP NOT NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS usuarios_super_admin_email_unique ON usuarios (email) WHERE empresa_id IS NULL;
+
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS empresa TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS data_contrato DATE;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS salario NUMERIC(12,2);
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS endereco TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS numero TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS bairro TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS cidade TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS cep TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS estado_civil TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS raca_cor TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS horario TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS escolaridade TEXT;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS pis TEXT;
+
+CREATE TABLE IF NOT EXISTS funcionario_arquivos (
+  id SERIAL PRIMARY KEY,
+  funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+  nome_arquivo TEXT NOT NULL,
+  tipo_arquivo TEXT NOT NULL,
+  caminho TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_funcionario_arquivos_func ON funcionario_arquivos (funcionario_id);
 `;
 
 export async function runDbInit(): Promise<void> {

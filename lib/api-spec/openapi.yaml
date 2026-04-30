@@ -143,6 +143,80 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /funcionarios/{id}/arquivos:
+    get:
+      operationId: getFuncionarioArquivos
+      tags: [funcionarios]
+      summary: Listar arquivos do funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lista de arquivos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FuncionarioArquivo"
+    post:
+      operationId: uploadFuncionarioArquivo
+      tags: [funcionarios]
+      summary: Enviar arquivo do funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+              required:
+                - file
+      responses:
+        "201":
+          description: Arquivo enviado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FuncionarioArquivo"
+
+  /funcionarios/{id}/arquivos/{arquivoId}:
+    delete:
+      operationId: deleteFuncionarioArquivo
+      tags: [funcionarios]
+      summary: Remover arquivo do funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: arquivoId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Arquivo removido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   /funcionarios/{id}/registros:
     get:
       operationId: getRegistrosFuncionario
@@ -376,6 +450,45 @@ components:
           type: string
         ativo:
           type: boolean
+        empresa:
+          type: string
+          nullable: true
+        data_contrato:
+          type: string
+          nullable: true
+        salario:
+          type: string
+          nullable: true
+        endereco:
+          type: string
+          nullable: true
+        numero:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+          nullable: true
+        cidade:
+          type: string
+          nullable: true
+        cep:
+          type: string
+          nullable: true
+        estado_civil:
+          type: string
+          nullable: true
+        raca_cor:
+          type: string
+          nullable: true
+        horario:
+          type: string
+          nullable: true
+        escolaridade:
+          type: string
+          nullable: true
+        pis:
+          type: string
+          nullable: true
         criado_em:
           type: string
       required:
@@ -414,6 +527,45 @@ components:
           type: string
         ativo:
           type: boolean
+        empresa:
+          type: string
+          nullable: true
+        data_contrato:
+          type: string
+          nullable: true
+        salario:
+          type: string
+          nullable: true
+        endereco:
+          type: string
+          nullable: true
+        numero:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+          nullable: true
+        cidade:
+          type: string
+          nullable: true
+        cep:
+          type: string
+          nullable: true
+        estado_civil:
+          type: string
+          nullable: true
+        raca_cor:
+          type: string
+          nullable: true
+        horario:
+          type: string
+          nullable: true
+        escolaridade:
+          type: string
+          nullable: true
+        pis:
+          type: string
+          nullable: true
       required:
         - codigo
         - nome
@@ -439,6 +591,68 @@ components:
           type: string
         ativo:
           type: boolean
+        empresa:
+          type: string
+          nullable: true
+        data_contrato:
+          type: string
+          nullable: true
+        salario:
+          type: string
+          nullable: true
+        endereco:
+          type: string
+          nullable: true
+        numero:
+          type: string
+          nullable: true
+        bairro:
+          type: string
+          nullable: true
+        cidade:
+          type: string
+          nullable: true
+        cep:
+          type: string
+          nullable: true
+        estado_civil:
+          type: string
+          nullable: true
+        raca_cor:
+          type: string
+          nullable: true
+        horario:
+          type: string
+          nullable: true
+        escolaridade:
+          type: string
+          nullable: true
+        pis:
+          type: string
+          nullable: true
+
+    FuncionarioArquivo:
+      type: object
+      properties:
+        id:
+          type: integer
+        funcionario_id:
+          type: integer
+        nome_arquivo:
+          type: string
+        tipo_arquivo:
+          type: string
+        caminho:
+          type: string
+        criado_em:
+          type: string
+      required:
+        - id
+        - funcionario_id
+        - nome_arquivo
+        - tipo_arquivo
+        - caminho
+        - criado_em
 
     RegistroPonto:
       type: object

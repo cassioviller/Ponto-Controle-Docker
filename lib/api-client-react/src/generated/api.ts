@@ -25,6 +25,7 @@ import type {
   ExportarFolhaParams,
   FolhaMensal,
   Funcionario,
+  FuncionarioArquivo,
   GetConsolidadoParams,
   GetFuncionariosParams,
   GetRegistrosFuncionarioParams,
@@ -36,6 +37,7 @@ import type {
   RegistroPonto,
   ResumoFuncionario,
   UpdateFuncionarioBody,
+  UploadFuncionarioArquivoBody,
   UpsertRegistroBody,
 } from "./api.schemas";
 
@@ -559,6 +561,275 @@ export const useDeleteFuncionario = <
   TContext
 > => {
   return useMutation(getDeleteFuncionarioMutationOptions(options));
+};
+
+/**
+ * @summary Listar arquivos do funcionário
+ */
+export const getGetFuncionarioArquivosUrl = (id: number) => {
+  return `/api/funcionarios/${id}/arquivos`;
+};
+
+export const getFuncionarioArquivos = async (
+  id: number,
+  options?: RequestInit,
+): Promise<FuncionarioArquivo[]> => {
+  return customFetch<FuncionarioArquivo[]>(getGetFuncionarioArquivosUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetFuncionarioArquivosQueryKey = (id: number) => {
+  return [`/api/funcionarios/${id}/arquivos`] as const;
+};
+
+export const getGetFuncionarioArquivosQueryOptions = <
+  TData = Awaited<ReturnType<typeof getFuncionarioArquivos>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFuncionarioArquivos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetFuncionarioArquivosQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getFuncionarioArquivos>>
+  > = ({ signal }) => getFuncionarioArquivos(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getFuncionarioArquivos>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetFuncionarioArquivosQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getFuncionarioArquivos>>
+>;
+export type GetFuncionarioArquivosQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Listar arquivos do funcionário
+ */
+
+export function useGetFuncionarioArquivos<
+  TData = Awaited<ReturnType<typeof getFuncionarioArquivos>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getFuncionarioArquivos>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetFuncionarioArquivosQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Enviar arquivo do funcionário
+ */
+export const getUploadFuncionarioArquivoUrl = (id: number) => {
+  return `/api/funcionarios/${id}/arquivos`;
+};
+
+export const uploadFuncionarioArquivo = async (
+  id: number,
+  uploadFuncionarioArquivoBody: UploadFuncionarioArquivoBody,
+  options?: RequestInit,
+): Promise<FuncionarioArquivo> => {
+  const formData = new FormData();
+  formData.append(`file`, uploadFuncionarioArquivoBody.file);
+
+  return customFetch<FuncionarioArquivo>(getUploadFuncionarioArquivoUrl(id), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getUploadFuncionarioArquivoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadFuncionarioArquivo>>,
+    TError,
+    { id: number; data: BodyType<UploadFuncionarioArquivoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadFuncionarioArquivo>>,
+  TError,
+  { id: number; data: BodyType<UploadFuncionarioArquivoBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadFuncionarioArquivo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadFuncionarioArquivo>>,
+    { id: number; data: BodyType<UploadFuncionarioArquivoBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return uploadFuncionarioArquivo(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadFuncionarioArquivoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadFuncionarioArquivo>>
+>;
+export type UploadFuncionarioArquivoMutationBody =
+  BodyType<UploadFuncionarioArquivoBody>;
+export type UploadFuncionarioArquivoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Enviar arquivo do funcionário
+ */
+export const useUploadFuncionarioArquivo = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadFuncionarioArquivo>>,
+    TError,
+    { id: number; data: BodyType<UploadFuncionarioArquivoBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadFuncionarioArquivo>>,
+  TError,
+  { id: number; data: BodyType<UploadFuncionarioArquivoBody> },
+  TContext
+> => {
+  return useMutation(getUploadFuncionarioArquivoMutationOptions(options));
+};
+
+/**
+ * @summary Remover arquivo do funcionário
+ */
+export const getDeleteFuncionarioArquivoUrl = (
+  id: number,
+  arquivoId: number,
+) => {
+  return `/api/funcionarios/${id}/arquivos/${arquivoId}`;
+};
+
+export const deleteFuncionarioArquivo = async (
+  id: number,
+  arquivoId: number,
+  options?: RequestInit,
+): Promise<MessageResponse> => {
+  return customFetch<MessageResponse>(
+    getDeleteFuncionarioArquivoUrl(id, arquivoId),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getDeleteFuncionarioArquivoMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFuncionarioArquivo>>,
+    TError,
+    { id: number; arquivoId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteFuncionarioArquivo>>,
+  TError,
+  { id: number; arquivoId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteFuncionarioArquivo"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteFuncionarioArquivo>>,
+    { id: number; arquivoId: number }
+  > = (props) => {
+    const { id, arquivoId } = props ?? {};
+
+    return deleteFuncionarioArquivo(id, arquivoId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteFuncionarioArquivoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteFuncionarioArquivo>>
+>;
+
+export type DeleteFuncionarioArquivoMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remover arquivo do funcionário
+ */
+export const useDeleteFuncionarioArquivo = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteFuncionarioArquivo>>,
+    TError,
+    { id: number; arquivoId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteFuncionarioArquivo>>,
+  TError,
+  { id: number; arquivoId: number },
+  TContext
+> => {
+  return useMutation(getDeleteFuncionarioArquivoMutationOptions(options));
 };
 
 /**

@@ -77,7 +77,8 @@ lib/
 Tables:
 - `empresas` — companies (nome, cnpj, plano)
 - `usuarios` — admin users per empresa (nome, email, senha_hash, role)
-- `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária)
+- `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento, transporte, jornada_diária; plus optional CLT fields: empresa, data_contrato, salario, endereço, número, bairro, cidade, cep, estado_civil, raca_cor, horário, escolaridade, pis)
+- `funcionario_arquivos` — uploaded documents per employee (funcionario_id FK, nome_arquivo, tipo_arquivo, caminho on disk, criado_em). Files saved under `${UPLOADS_DIR-./uploads}/funcionarios/:id/`.
 - `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, saida_almoco, volta_almoco, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações)
 - `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, entrada_padrao, saida_padrao, intervalo_padrao, is_folga)
 - `feriados` — holidays per empresa (data, descricao, tipo)
@@ -105,6 +106,7 @@ When editing a time record in FolhaIndividual, changing Entrada/Saída/Saída-Al
 
 - `GET/POST/PUT /api/empresas` — company management
 - `GET/PUT /api/funcionarios/:id/jornadas` — weekly schedule per employee
+- `GET/POST/DELETE /api/funcionarios/:id/arquivos[/:arquivoId]` — list / multipart-upload / delete employee documents (allowed: JPG, PNG, PDF, DOCX). `GET .../arquivos/:arquivoId/download` streams the file.
 - All existing routes (`/funcionarios`, `/registros`, `/relatorios`) scoped by X-Empresa-Id header
 
 ## Deployment
