@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: API de Controle de Ponto
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: funcionarios
+    description: Gestão de funcionários
+  - name: registros
+    description: Registros de ponto
+  - name: relatorios
+    description: Relatórios e consolidados
+  - name: excel
+    description: Exportação e importação de Excel
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,301 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /funcionarios:
+    get:
+      operationId: getFuncionarios
+      tags: [funcionarios]
+      summary: Listar funcionários
+      parameters:
+        - name: situacao
+          in: query
+          schema:
+            type: string
+        - name: vinculo
+          in: query
+          schema:
+            type: string
+        - name: ativo
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Lista de funcionários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Funcionario"
+    post:
+      operationId: createFuncionario
+      tags: [funcionarios]
+      summary: Criar funcionário
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFuncionarioBody"
+      responses:
+        "201":
+          description: Funcionário criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Funcionario"
+
+  /funcionarios/{id}:
+    get:
+      operationId: getFuncionario
+      tags: [funcionarios]
+      summary: Buscar funcionário por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Funcionário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Funcionario"
+        "404":
+          description: Não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateFuncionario
+      tags: [funcionarios]
+      summary: Atualizar funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFuncionarioBody"
+      responses:
+        "200":
+          description: Funcionário atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Funcionario"
+    delete:
+      operationId: deleteFuncionario
+      tags: [funcionarios]
+      summary: Remover funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Removido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /funcionarios/{id}/registros:
+    get:
+      operationId: getRegistrosFuncionario
+      tags: [registros]
+      summary: Folha mensal de um funcionário
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mes
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-04"
+      responses:
+        "200":
+          description: Folha mensal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FolhaMensal"
+
+  /registros:
+    post:
+      operationId: upsertRegistro
+      tags: [registros]
+      summary: Criar ou atualizar registro de ponto de um dia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertRegistroBody"
+      responses:
+        "200":
+          description: Registro salvo
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistroPonto"
+
+  /ponto/bater:
+    post:
+      operationId: baterPonto
+      tags: [registros]
+      summary: Registrar entrada ou saída com horário atual
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaterPontoBody"
+      responses:
+        "200":
+          description: Ponto registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaterPontoResponse"
+
+  /consolidado:
+    get:
+      operationId: getConsolidado
+      tags: [relatorios]
+      summary: Consolidado mensal de todos os funcionários
+      parameters:
+        - name: mes
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-04"
+      responses:
+        "200":
+          description: Consolidado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Consolidado"
+
+  /resumo:
+    get:
+      operationId: getResumo
+      tags: [relatorios]
+      summary: Resumo geral com dados dos funcionários e totais mensais
+      parameters:
+        - name: mes
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-04"
+        - name: situacao
+          in: query
+          schema:
+            type: string
+        - name: vinculo
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Resumo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ResumoFuncionario"
+
+  /exportar/modelo:
+    get:
+      operationId: exportarModelo
+      tags: [excel]
+      summary: Baixar modelo Excel para preenchimento
+      responses:
+        "200":
+          description: Arquivo Excel modelo
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /exportar/folha/{id}:
+    get:
+      operationId: exportarFolha
+      tags: [excel]
+      summary: Exportar folha individual em Excel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: mes
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "2025-04"
+      responses:
+        "200":
+          description: Arquivo Excel da folha
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /importar:
+    post:
+      operationId: importarExcel
+      tags: [excel]
+      summary: Importar registros de ponto via Excel
+      parameters:
+        - name: funcionario_id
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: mes
+          in: query
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Importação concluída
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportacaoResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +337,369 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    Funcionario:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: integer
+        nome:
+          type: string
+        cargo:
+          type: string
+        vinculo:
+          type: string
+        situacao:
+          type: string
+        adiantamento:
+          type: boolean
+        transporte:
+          type: boolean
+        jornada_diaria:
+          type: string
+        ativo:
+          type: boolean
+        criado_em:
+          type: string
+      required:
+        - id
+        - codigo
+        - nome
+        - cargo
+        - vinculo
+        - situacao
+        - adiantamento
+        - transporte
+        - jornada_diaria
+        - ativo
+        - criado_em
+
+    CreateFuncionarioBody:
+      type: object
+      properties:
+        codigo:
+          type: integer
+        nome:
+          type: string
+        cargo:
+          type: string
+        vinculo:
+          type: string
+          enum: [CLT, Contribuinte, Autonomo, Estagiario]
+        situacao:
+          type: string
+          enum: [Ativo, Demitido, Aviso, Ferias]
+        adiantamento:
+          type: boolean
+        transporte:
+          type: boolean
+        jornada_diaria:
+          type: string
+        ativo:
+          type: boolean
+      required:
+        - codigo
+        - nome
+
+    UpdateFuncionarioBody:
+      type: object
+      properties:
+        codigo:
+          type: integer
+        nome:
+          type: string
+        cargo:
+          type: string
+        vinculo:
+          type: string
+        situacao:
+          type: string
+        adiantamento:
+          type: boolean
+        transporte:
+          type: boolean
+        jornada_diaria:
+          type: string
+        ativo:
+          type: boolean
+
+    RegistroPonto:
+      type: object
+      properties:
+        id:
+          type: integer
+        funcionario_id:
+          type: integer
+        data:
+          type: string
+        entrada:
+          type: string
+          nullable: true
+        saida:
+          type: string
+          nullable: true
+        intervalo:
+          type: string
+          nullable: true
+        total_horas:
+          type: string
+          nullable: true
+        he_60:
+          type: string
+          nullable: true
+        he_100:
+          type: string
+          nullable: true
+        atrasos:
+          type: string
+          nullable: true
+        faltas:
+          type: string
+          nullable: true
+        observacoes:
+          type: string
+          nullable: true
+      required:
+        - id
+        - funcionario_id
+        - data
+
+    UpsertRegistroBody:
+      type: object
+      properties:
+        funcionario_id:
+          type: integer
+        data:
+          type: string
+        entrada:
+          type: string
+          nullable: true
+        saida:
+          type: string
+          nullable: true
+        intervalo:
+          type: string
+          nullable: true
+        he_60:
+          type: string
+          nullable: true
+        he_100:
+          type: string
+          nullable: true
+        atrasos:
+          type: string
+          nullable: true
+        faltas:
+          type: string
+          nullable: true
+        observacoes:
+          type: string
+          nullable: true
+      required:
+        - funcionario_id
+        - data
+
+    BaterPontoBody:
+      type: object
+      properties:
+        funcionario_id:
+          type: integer
+        tipo:
+          type: string
+          enum: [entrada, saida]
+      required:
+        - funcionario_id
+        - tipo
+
+    BaterPontoResponse:
+      type: object
+      properties:
+        funcionario_id:
+          type: integer
+        tipo:
+          type: string
+        horario:
+          type: string
+        data:
+          type: string
+        registro:
+          $ref: "#/components/schemas/RegistroPonto"
+      required:
+        - funcionario_id
+        - tipo
+        - horario
+        - data
+        - registro
+
+    FolhaMensal:
+      type: object
+      properties:
+        funcionario:
+          $ref: "#/components/schemas/Funcionario"
+        mes:
+          type: string
+        registros:
+          type: array
+          items:
+            $ref: "#/components/schemas/RegistroPonto"
+        resumo:
+          $ref: "#/components/schemas/ResumoMes"
+      required:
+        - funcionario
+        - mes
+        - registros
+        - resumo
+
+    ResumoMes:
+      type: object
+      properties:
+        total_horas:
+          type: string
+        he_60:
+          type: string
+        he_100:
+          type: string
+        atrasos:
+          type: string
+        faltas_dia:
+          type: number
+        faltas_horas:
+          type: string
+        dias_trabalhados:
+          type: integer
+        dom_feriados:
+          type: integer
+      required:
+        - total_horas
+        - he_60
+        - he_100
+        - atrasos
+        - faltas_dia
+        - faltas_horas
+        - dias_trabalhados
+        - dom_feriados
+
+    ConsolidadoLinha:
+      type: object
+      properties:
+        funcionario_id:
+          type: integer
+        nome:
+          type: string
+        total_horas:
+          type: string
+        he_60:
+          type: string
+        he_100:
+          type: string
+        atrasos:
+          type: string
+        faltas:
+          type: number
+        dias_trabalhados:
+          type: integer
+        dom_feriados:
+          type: integer
+      required:
+        - funcionario_id
+        - nome
+        - total_horas
+        - he_60
+        - he_100
+        - atrasos
+        - faltas
+        - dias_trabalhados
+        - dom_feriados
+
+    Consolidado:
+      type: object
+      properties:
+        mes:
+          type: string
+        linhas:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConsolidadoLinha"
+        total_geral:
+          $ref: "#/components/schemas/ConsolidadoLinha"
+      required:
+        - mes
+        - linhas
+        - total_geral
+
+    ResumoFuncionario:
+      type: object
+      properties:
+        id:
+          type: integer
+        codigo:
+          type: integer
+        nome:
+          type: string
+        cargo:
+          type: string
+        vinculo:
+          type: string
+        situacao:
+          type: string
+        adiantamento:
+          type: boolean
+        transporte:
+          type: boolean
+        jornada_diaria:
+          type: string
+        faltas_dia:
+          type: number
+        faltas_horas:
+          type: string
+        he_60:
+          type: string
+        he_100:
+          type: string
+      required:
+        - id
+        - codigo
+        - nome
+        - cargo
+        - vinculo
+        - situacao
+        - adiantamento
+        - transporte
+        - jornada_diaria
+        - faltas_dia
+        - faltas_horas
+        - he_60
+        - he_100
+
+    ImportacaoResponse:
+      type: object
+      properties:
+        importados:
+          type: integer
+        erros:
+          type: array
+          items:
+            type: string
+        mes:
+          type: string
+      required:
+        - importados
+        - erros
+        - mes
