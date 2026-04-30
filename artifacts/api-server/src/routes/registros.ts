@@ -113,7 +113,9 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       (r) => r.entrada && r.saida,
     ).length;
 
-    const domFeriados = folhaDias.filter((d) => isDomFeriado(d.data)).length;
+    const domFeriados = mesRegistros.filter(
+      (r) => isDomFeriado(r.data) && r.entrada && r.saida,
+    ).length;
 
     const resumo = {
       total_horas: minutesToTime(totalHoras),

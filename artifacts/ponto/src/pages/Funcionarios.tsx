@@ -184,9 +184,9 @@ export default function Funcionarios() {
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(f.id)}
-                        className="text-xs px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                        className="text-xs px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
                       >
-                        Del.
+                        Desativar
                       </button>
                     </div>
                   </td>
@@ -334,9 +334,9 @@ export default function Funcionarios() {
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm">
-            <h2 className="text-base font-bold text-[#1B2A4A] mb-2">Confirmar exclusão</h2>
+            <h2 className="text-base font-bold text-[#1B2A4A] mb-2">Confirmar desativação</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Tem certeza que deseja excluir este funcionário? Todos os registros de ponto associados serão removidos.
+              Tem certeza que deseja desativar este funcionário? Os registros de ponto serão preservados, mas o funcionário não aparecerá mais nas listas ativas.
             </p>
             <div className="flex gap-2 justify-end">
               <button
@@ -347,9 +347,9 @@ export default function Funcionarios() {
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="px-4 py-2 text-sm bg-red-500 text-white rounded hover:bg-red-600"
+                className="px-4 py-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600"
               >
-                Excluir
+                Desativar
               </button>
             </div>
           </div>

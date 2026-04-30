@@ -40,11 +40,14 @@ docker run -p 5987:5987 \
 5. Defina a porta exposta: `5987`
 6. Deploy
 
-## Banco de Dados — Migração Inicial
+## Banco de Dados — Inicialização Automática
 
-A migração do banco é executada automaticamente via Drizzle ORM na inicialização.
+Na primeira inicialização, o servidor executa automaticamente:
 
-Para executar manualmente:
+1. **`runDbInit()`** — emite `CREATE TABLE IF NOT EXISTS` para `funcionarios`, `registros_ponto` e índices necessários. Idempotente — seguro em deploys subsequentes.
+2. **`runSeed()`** — popula 15 funcionários (13 reais + 2 EXEMPLO) e registros de Abril/2025 para 3 funcionários. Idempotente — só roda quando a tabela está vazia.
+
+Para alterações futuras de schema (ex.: adicionar novas colunas), gere e aplique migrações via Drizzle:
 ```bash
 pnpm --filter @workspace/db run push
 ```

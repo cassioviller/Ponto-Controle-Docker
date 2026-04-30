@@ -9,7 +9,7 @@ import {
   GetConsolidadoQueryParams,
   GetResumoQueryParams,
 } from "@workspace/api-zod";
-import { parseMes, getDaysInMonth, isDomFeriado, timeToMinutes } from "../lib/timeUtils";
+import { parseMes, isDomFeriado, timeToMinutes } from "../lib/timeUtils";
 
 const router = Router();
 
@@ -50,13 +50,14 @@ router.get("/consolidado", async (req, res) => {
       );
     });
 
-    const days = getDaysInMonth(year, month);
-    const domFeriadosDias = days.filter((d) => isDomFeriado(d));
-
     const linhas = funcionarios.map((f) => {
       const regs = mesRegistros
         .filter((r) => r.funcionario_id === f.id)
         .map((r) => ({ ...r, total_horas: r.total_horas, he_60: r.he_60, he_100: r.he_100, atrasos: r.atrasos }));
+
+      const domFeriadosFunc = regs.filter(
+        (r) => isDomFeriado(r.data) && r.entrada && r.saida,
+      ).length;
 
       const totalMin = regs.reduce((acc, r) => {
         const [h, m] = (r.total_horas ?? "00:00").split(":").map(Number);
@@ -90,7 +91,7 @@ router.get("/consolidado", async (req, res) => {
         atrasos: minutesToTime(atrasosMin),
         faltas,
         dias_trabalhados: diasTrabalhados,
-        dom_feriados: domFeriadosDias.length,
+        dom_feriados: domFeriadosFunc,
       };
     });
 
@@ -109,7 +110,7 @@ router.get("/consolidado", async (req, res) => {
       atrasos: sumHHMM(linhas, "atrasos"),
       faltas: linhas.reduce((acc, l) => acc + l.faltas, 0),
       dias_trabalhados: linhas.reduce((acc, l) => acc + l.dias_trabalhados, 0),
-      dom_feriados: domFeriadosDias.length,
+      dom_feriados: linhas.reduce((acc, l) => acc + l.dom_feriados, 0),
     };
 
     res.json({ mes, linhas, total_geral: totalGeral });

@@ -94,10 +94,16 @@ router.put("/funcionarios/:id", async (req, res) => {
 router.delete("/funcionarios/:id", async (req, res) => {
   try {
     const { id } = DeleteFuncionarioParams.parse({ id: Number(req.params.id) });
-    await db
-      .delete(funcionariosTable)
-      .where(eq(funcionariosTable.id, id));
-    res.json({ message: "Funcionário removido com sucesso" });
+    const updated = await db
+      .update(funcionariosTable)
+      .set({ ativo: false, situacao: "Inativo" })
+      .where(eq(funcionariosTable.id, id))
+      .returning();
+    if (updated.length === 0) {
+      res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
+    res.json({ message: "Funcionário desativado com sucesso", funcionario: updated[0] });
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }

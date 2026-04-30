@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { runSeed } from "@workspace/db";
+import { runDbInit, runSeed } from "@workspace/db";
 
 const rawPort = process.env["PORT"];
 
@@ -23,6 +23,12 @@ app.listen(port, async (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  try {
+    await runDbInit();
+  } catch (initErr: unknown) {
+    logger.error({ err: initErr }, "DB init failed (non-fatal)");
+  }
 
   try {
     await runSeed();
