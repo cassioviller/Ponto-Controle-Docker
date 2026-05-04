@@ -33,6 +33,7 @@ import {
   type TipoDia,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
+import { serializeFuncionario } from "./funcionarios";
 
 const router = Router();
 
@@ -195,7 +196,7 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
     };
 
     res.json({
-      funcionario,
+      funcionario: serializeFuncionario(funcionario),
       mes,
       registros: folhaDias,
       resumo,

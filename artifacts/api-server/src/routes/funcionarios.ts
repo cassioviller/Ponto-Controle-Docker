@@ -22,7 +22,7 @@ const router = Router();
 
 type FuncionarioRow = typeof funcionariosTable.$inferSelect;
 
-function serializeFuncionario(row: FuncionarioRow) {
+export function serializeFuncionario(row: FuncionarioRow) {
   return {
     ...row,
     adiantamento: parseFloat(row.adiantamento ?? "0") || 0,

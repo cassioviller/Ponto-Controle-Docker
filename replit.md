@@ -111,7 +111,7 @@ Cada registro tem o campo `tipo_dia` (enum) com 6 valores que determinam todo o 
 - A regra única vive em `artifacts/api-server/src/lib/timeUtils.ts → calcFromTipoDia()` e é aplicada por POST `/registros`, `/ponto/bater` e `/importar`.
 - **Auto-detecção de feriado/domingo**: em `/ponto/bater`, se o registro do dia está com tipo default `normal` mas a data é domingo ou feriado (nacional ou da empresa), o tipo é automaticamente promovido para `feriado_trabalhado` antes do cálculo final.
 - Compat legado: campos antigos `justificativa` (`nenhuma`/`justificada`/`injustificada`) e `faltas` são preenchidos por `legacyMirrorFromTipo()` para manter relatórios e queries antigas funcionando. Backfill executado: linhas pré-tipo_dia foram derivadas via heurística. `tipoFromLegacy()` (usado quando o caller envia formato antigo sem `tipo_dia`) infere `falta` para dias úteis sem horas e `feriado`/`feriado_trabalhado` em domingos/feriados.
-- O endpoint `/consolidado` retorna `codigo` (do funcionário) por linha + `total_geral`. Cada linha inclui `adiantamento` (string em R$, casas decimais), e `total_geral.adiantamento` é a soma de todos.
+- O endpoint `/consolidado` retorna `codigo` (do funcionário) por linha + `total_geral`. Cada linha inclui `adiantamento` (number em R$), e `total_geral.adiantamento` é a soma de todos. O contrato é `type: number, format: float`; no banco o valor é armazenado como `NUMERIC(12,2)` (string via Drizzle) e convertido para number na borda da API.
 
 ## UI de lançamento
 
