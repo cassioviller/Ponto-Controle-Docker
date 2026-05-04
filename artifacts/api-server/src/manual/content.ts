@@ -49,6 +49,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
           "Totais mensais por funcionário e do consolidado da empresa.",
         ],
       },
+      { kind: "img", file: "resumo.png", caption: "Tela inicial do sistema (Resumo Geral) — visão para o administrador" },
     ],
   },
   {
@@ -127,6 +128,37 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       {
         kind: "p",
         text: "Funcionários demitidos não devem ser excluídos — basta mudar a Situação para 'Demitido' e desmarcar 'Ativo'. Isso preserva o histórico de pontos para relatórios passados.",
+      },
+    ],
+  },
+  {
+    title: "Cargos",
+    profile: "Admin",
+    body: [
+      {
+        kind: "p",
+        text: "O Cargo é um campo de texto livre dentro do cadastro do funcionário (seção 'Dados de Contrato'). Ele identifica a função exercida pelo colaborador (ex.: 'Auxiliar Administrativo', 'Operador de Caixa', 'Motorista', 'Gerente').",
+      },
+      { kind: "img", file: "funcionario-novo.png", caption: "Campo 'Cargo' no cadastro do funcionário" },
+      { kind: "h", text: "Como o Cargo aparece no sistema" },
+      {
+        kind: "ul",
+        items: [
+          "Lista de Funcionários — coluna 'Cargo' exibida ao lado do nome.",
+          "Resumo Geral — coluna 'Cargo' permite identificar rapidamente a função de cada funcionário do mês.",
+          "Filtros — é possível filtrar a lista de funcionários e o Resumo Geral por Cargo, útil para empresas com muitos colaboradores.",
+          "Folha Individual — o Cargo aparece no cabeçalho da folha do funcionário.",
+        ],
+      },
+      { kind: "img", file: "funcionarios-lista.png", caption: "Coluna 'Cargo' na Lista de Funcionários" },
+      { kind: "h", text: "Boas práticas" },
+      {
+        kind: "ul",
+        items: [
+          "Padronize a escrita: use sempre o mesmo nome para a mesma função (ex.: sempre 'Auxiliar Administrativo', evite variações como 'Aux. Admin.' ou 'AUX ADM').",
+          "Mantenha o Cargo curto e descritivo (até 30 caracteres é o ideal para caber bem nas tabelas).",
+          "O Cargo é informativo — ele não altera regras de cálculo de jornada, HE ou faltas. Para diferenças de jornada, use a 'Jornada Padrão' ou a 'Escala Quinzenal'.",
+        ],
       },
     ],
   },
@@ -264,8 +296,9 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       { kind: "h", text: "Baixar modelo Excel" },
       {
         kind: "p",
-        text: "Em 'Resumo Geral', clique em 'Baixar Modelo Excel'. A planilha vem com duas abas: 'Funcionários' (com os dados cadastrais atuais) e 'Registros de Ponto' (em branco, com as colunas formatadas para preenchimento).",
+        text: "Em 'Resumo Geral', clique em 'Baixar Modelo Excel' (canto superior direito). A planilha vem com duas abas: 'Funcionários' (com os dados cadastrais atuais) e 'Registros de Ponto' (em branco, com as colunas formatadas para preenchimento).",
       },
+      { kind: "img", file: "resumo.png", caption: "Botão 'Baixar Modelo Excel' e botões 'Importar' na coluna Ações do Resumo Geral" },
       { kind: "h", text: "Importar registros do mês" },
       {
         kind: "p",
@@ -286,8 +319,9 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       { kind: "h", text: "Exportação da Folha Individual" },
       {
         kind: "p",
-        text: "Na Folha Individual de cada funcionário, é possível exportar o mês corrente em Excel para impressão ou arquivo. O Excel exportado segue o mesmo layout do modelo, então pode ser editado e re-importado.",
+        text: "Na Folha Individual de cada funcionário, use o botão 'Exportar Excel' (canto superior direito) para baixar o mês corrente em planilha. O Excel exportado segue o mesmo layout do modelo, então pode ser editado e re-importado.",
       },
+      { kind: "img", file: "folha-individual.png", caption: "Botão 'Exportar Excel' no canto superior direito da Folha Individual" },
     ],
   },
   {
@@ -327,8 +361,9 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       { kind: "h", text: "Marquei o ponto errado, e agora?" },
       {
         kind: "p",
-        text: "Avise o administrador. Ele pode corrigir o horário diretamente na sua Folha Individual com duplo clique na célula.",
+        text: "Avise o administrador. Ele pode corrigir o horário diretamente na sua Folha Individual com duplo clique na célula. Toda alteração é recalculada na hora (Total, HE, Atrasos).",
       },
+      { kind: "img", file: "folha-individual.png", caption: "Folha Individual — onde o administrador corrige batidas e muda Tipo de Dia" },
       { kind: "h", text: "Por que o sábado tem dois horários diferentes?" },
       {
         kind: "p",
@@ -344,6 +379,12 @@ export const MANUAL_SECTIONS: ManualSection[] = [
         kind: "p",
         text: "O administrador muda o 'Tipo de Dia' para 'Falta Justificada'. Você não perde horas no total mensal e o dia é contabilizado como 'dia justificado' nos relatórios.",
       },
+      { kind: "h", text: "Como vejo o resumo de todos os funcionários do mês?" },
+      {
+        kind: "p",
+        text: "Use a tela 'Consolidado' (no menu lateral). Ela mostra todos os funcionários com totais de horas, HE, atrasos, faltas e adiantamentos do mês, com a linha 'TOTAL GERAL' no fim.",
+      },
+      { kind: "img", file: "consolidado.png", caption: "Consolidado mensal — visão de fechamento" },
     ],
   },
 ];

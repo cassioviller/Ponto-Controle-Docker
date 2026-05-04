@@ -333,22 +333,33 @@ function drawFooters(doc: InstanceType<typeof PDFDocument>): void {
     doc.switchToPage(i);
     // Skip footer on cover (first page).
     if (i === range.start) continue;
-    const pageNum = i - range.start + 1;
-    doc.fillColor(COLORS.muted)
-      .font("Helvetica")
-      .fontSize(9)
-      .text(
-        `Manual do Usuário · Controle de Ponto`,
-        PAGE.marginX,
+    // Footer sits below the normal bottom margin. Zero out the page's
+    // bottom margin temporarily so doc.text() doesn't see overflow and
+    // trigger an automatic addPage() for every footer (which would
+    // create dozens of blank pages and break the TOC page numbers).
+    const page = (doc as unknown as { page: { margins: { bottom: number } } }).page;
+    const oldBottom = page.margins.bottom;
+    page.margins.bottom = 0;
+    try {
+      const pageNum = i - range.start + 1;
+      doc.fillColor(COLORS.muted)
+        .font("Helvetica")
+        .fontSize(9)
+        .text(
+          `Manual do Usuário · Controle de Ponto`,
+          PAGE.marginX,
+          PAGE.height - 35,
+          { width: CONTENT_WIDTH / 2, align: "left", lineBreak: false },
+        );
+      doc.text(
+        `Página ${pageNum} de ${total}`,
+        PAGE.marginX + CONTENT_WIDTH / 2,
         PAGE.height - 35,
-        { width: CONTENT_WIDTH / 2, align: "left", lineBreak: false },
+        { width: CONTENT_WIDTH / 2, align: "right", lineBreak: false },
       );
-    doc.text(
-      `Página ${pageNum} de ${total}`,
-      PAGE.marginX + CONTENT_WIDTH / 2,
-      PAGE.height - 35,
-      { width: CONTENT_WIDTH / 2, align: "right", lineBreak: false },
-    );
+    } finally {
+      page.margins.bottom = oldBottom;
+    }
   }
 }
 

@@ -85,22 +85,24 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {user.email}
             </div>
           )}
-          <button
-            type="button"
-            onClick={handleDownloadManual}
-            disabled={downloadingManual}
-            className="block text-[#A8BDD4] hover:text-white text-xs font-medium disabled:opacity-50"
-            title="Baixar Manual do Usuário (PDF)"
-          >
-            {downloadingManual ? "Baixando..." : "📘 Baixar Manual"}
-          </button>
-          <button
-            type="button"
-            onClick={logout}
-            className="block text-[#4A90D9] hover:text-white text-xs font-medium"
-          >
-            Sair
-          </button>
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadManual}
+              disabled={downloadingManual}
+              className="text-[#A8BDD4] hover:text-white text-xs font-medium disabled:opacity-50"
+              title="Baixar Manual do Usuário (PDF)"
+            >
+              {downloadingManual ? "Baixando..." : "📘 Baixar Manual"}
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              className="text-[#4A90D9] hover:text-white text-xs font-medium"
+            >
+              Sair
+            </button>
+          </div>
           <div className="text-[#4A6A8A] text-xs">v1.0.0</div>
         </div>
       </aside>
