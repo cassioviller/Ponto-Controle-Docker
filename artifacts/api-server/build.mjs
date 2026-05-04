@@ -83,6 +83,12 @@ const SHARED_EXTERNAL = [
   "puppeteer",
   "puppeteer-core",
   "electron",
+  "pdfkit",
+  "fontkit",
+  "brotli",
+  "@swc/helpers",
+  "linebreak",
+  "png-js",
 ];
 
 const SHARED_BANNER = {

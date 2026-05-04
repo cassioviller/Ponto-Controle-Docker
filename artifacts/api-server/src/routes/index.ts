@@ -8,6 +8,7 @@ import relatoriosRouter from "./relatorios";
 import excelRouter from "./excel";
 import empresasRouter from "./empresas";
 import jornadasRouter from "./jornadas";
+import manualRouter from "./manual";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -27,5 +28,6 @@ router.use(registrosRouter);
 router.use(relatoriosRouter);
 router.use(excelRouter);
 router.use(jornadasRouter);
+router.use(manualRouter);
 
 export default router;

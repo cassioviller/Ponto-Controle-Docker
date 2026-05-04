@@ -143,6 +143,7 @@ Cada registro tem o campo `tipo_dia` (enum) com 6 valores que determinam todo o 
 - `GET/POST/PUT /api/empresas` — company management
 - `GET/PUT /api/funcionarios/:id/jornadas` — weekly schedule per employee
 - `GET/POST/DELETE /api/funcionarios/:id/arquivos[/:arquivoId]` — list / multipart-upload / delete employee documents (allowed: JPG, PNG, PDF, DOCX). `GET .../arquivos/:arquivoId/download` streams the file.
+- `GET /api/manual.pdf` — generates the user manual PDF (Portuguese, with screenshots, ~43 pages). Auth-only. Used by the "📘 Baixar Manual" button in the sidebar (`Layout.tsx`). Generated server-side via `pdfkit`; content lives in `artifacts/api-server/src/manual/content.ts` and PDF layout in `artifacts/api-server/src/manual/pdf.ts`. Screenshots live in `artifacts/api-server/src/manual/screenshots/` and can be re-captured by running `node artifacts/api-server/scripts/capture-screenshots.mjs` (uses puppeteer + system chromium at `/nix/store/.../chromium`). pdfkit/fontkit/brotli/@swc/helpers/png-js/linebreak are kept external in `build.mjs` because they don't bundle cleanly via esbuild.
 - All existing routes (`/funcionarios`, `/registros`, `/relatorios`) scoped by X-Empresa-Id header
 
 ## Deployment

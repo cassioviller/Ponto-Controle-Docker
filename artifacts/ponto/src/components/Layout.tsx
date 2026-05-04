@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { cn } from "@/lib/utils";
+import { cn, downloadAuthenticatedFile } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
@@ -12,6 +13,19 @@ const navItems = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, empresa, logout } = useAuth();
+  const [downloadingManual, setDownloadingManual] = useState(false);
+
+  async function handleDownloadManual() {
+    if (downloadingManual) return;
+    setDownloadingManual(true);
+    try {
+      await downloadAuthenticatedFile("/api/manual.pdf", "manual-controle-de-ponto.pdf");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Falha ao baixar o manual");
+    } finally {
+      setDownloadingManual(false);
+    }
+  }
 
   return (
     <div className="flex h-screen bg-[#F4F6F8] overflow-hidden">
@@ -73,8 +87,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
           <button
             type="button"
+            onClick={handleDownloadManual}
+            disabled={downloadingManual}
+            className="block text-[#A8BDD4] hover:text-white text-xs font-medium disabled:opacity-50"
+            title="Baixar Manual do Usuário (PDF)"
+          >
+            {downloadingManual ? "Baixando..." : "📘 Baixar Manual"}
+          </button>
+          <button
+            type="button"
             onClick={logout}
-            className="text-[#4A90D9] hover:text-white text-xs font-medium"
+            className="block text-[#4A90D9] hover:text-white text-xs font-medium"
           >
             Sair
           </button>
