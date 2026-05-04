@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile } from "@/lib/utils";
+import { maskHHMM } from "@/lib/hhmm";
 import type { FolhaMensal, RegistroPonto } from "@workspace/api-client-react";
 import { toast } from "@/hooks/use-toast";
 
@@ -263,8 +264,12 @@ function EditableTimeCell({
         ref={inputRef}
         autoFocus
         type="text"
+        inputMode="numeric"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value;
+          setDraft((prev) => maskHHMM(next, prev));
+        }}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -929,10 +934,18 @@ export default function FolhaIndividual() {
                   </label>
                   <input
                     type="text"
+                    inputMode="numeric"
                     placeholder="HH:MM"
                     value={(editingRow[key] as string | null | undefined) ?? ""}
                     readOnly={readOnly}
-                    onChange={(e) => handleEditFieldChange(key, e.target.value)}
+                    onChange={(e) =>
+                      handleEditFieldChange(
+                        key,
+                        readOnly
+                          ? e.target.value
+                          : maskHHMM(e.target.value, (editingRow[key] as string | null | undefined) ?? ""),
+                      )
+                    }
                     className={`w-full border rounded px-2 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9] ${readOnly ? "bg-gray-50 text-gray-500" : ""}`}
                   />
                 </div>

@@ -27,6 +27,7 @@ import {
   isoToBrDate,
   brToIsoDate,
   timeToMinutes,
+  normalizeHHMM,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
@@ -191,7 +192,7 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
       "",
       "1. Data: Use o formato brasileiro DD/MM/AAAA (ex: 01/04/2026). O formato YYYY-MM-DD também é aceito.",
       "2. Tipo do Dia: ESCOLHA da lista suspensa (Normal, Feriado, Feriado Trabalhado, Falta, Falta Justificada, Atraso Justificado).",
-      "3. Entrada / Saída Almoço / Volta Almoço / Saída: Use HH:MM (ex: 08:00, 12:00, 13:00, 17:30).",
+      "3. Entrada / Saída Almoço / Volta Almoço / Saída: Use HH:MM (ex: 08:00, 12:00, 13:00, 17:30). O ':' é opcional — você pode digitar apenas os números (ex: 0800 vira 08:00, 800 vira 08:00, 1730 vira 17:30).",
       "4. Observações: Campo livre para texto.",
       "",
       "REGRAS POR TIPO:",
@@ -503,11 +504,11 @@ router.post("/importar", async (req: Request, res: Response) => {
         return s || null;
       };
 
-      const entrada = getCellStr(COL.entrada);
-      const saida = getCellStr(COL.saida);
-      const saidaAlmoco = getCellStr(COL.saidaAlmoco);
-      const voltaAlmoco = getCellStr(COL.voltaAlmoco);
-      const intervaloRaw = getCellStr(COL.intervalo);
+      const entrada = normalizeHHMM(getCellStr(COL.entrada));
+      const saida = normalizeHHMM(getCellStr(COL.saida));
+      const saidaAlmoco = normalizeHHMM(getCellStr(COL.saidaAlmoco));
+      const voltaAlmoco = normalizeHHMM(getCellStr(COL.voltaAlmoco));
+      const intervaloRaw = normalizeHHMM(getCellStr(COL.intervalo));
       const observacoes = getCellStr(COL.obs);
 
       // Resolver tipo_dia

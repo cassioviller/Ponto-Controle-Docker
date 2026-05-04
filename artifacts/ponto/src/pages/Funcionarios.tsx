@@ -17,6 +17,7 @@ import type {
 } from "@workspace/api-client-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { baseUrl, authHeaders, formatBRL } from "@/lib/utils";
+import { maskHHMM } from "@/lib/hhmm";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
 const SITUACOES = ["Ativo", "Demitido", "Aviso", "Ferias"];
@@ -584,8 +585,15 @@ export default function Funcionarios() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Jornada Diária</label>
                     <input
                       type="text"
+                      inputMode="numeric"
                       value={form.jornada_diaria ?? "08:00"}
-                      onChange={(e) => setField("jornada_diaria", e.target.value)}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setForm((p) => ({
+                          ...p,
+                          jornada_diaria: maskHHMM(next, p.jornada_diaria ?? ""),
+                        }));
+                      }}
                       placeholder="08:00"
                       className="w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
                     />
@@ -791,8 +799,9 @@ export default function Funcionarios() {
                               <td className="px-2 py-1.5">
                                 <input
                                   type="text"
+                                  inputMode="numeric"
                                   value={j.entrada_padrao}
-                                  onChange={(e) => updateJornada(num, "entrada_padrao", e.target.value)}
+                                  onChange={(e) => updateJornada(num, "entrada_padrao", maskHHMM(e.target.value, j.entrada_padrao))}
                                   disabled={j.is_folga}
                                   placeholder="08:00"
                                   className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
@@ -801,8 +810,9 @@ export default function Funcionarios() {
                               <td className="px-2 py-1.5">
                                 <input
                                   type="text"
+                                  inputMode="numeric"
                                   value={j.saida_padrao}
-                                  onChange={(e) => updateJornada(num, "saida_padrao", e.target.value)}
+                                  onChange={(e) => updateJornada(num, "saida_padrao", maskHHMM(e.target.value, j.saida_padrao))}
                                   disabled={j.is_folga}
                                   placeholder="17:00"
                                   className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
@@ -811,8 +821,9 @@ export default function Funcionarios() {
                               <td className="px-2 py-1.5">
                                 <input
                                   type="text"
+                                  inputMode="numeric"
                                   value={j.intervalo_padrao}
-                                  onChange={(e) => updateJornada(num, "intervalo_padrao", e.target.value)}
+                                  onChange={(e) => updateJornada(num, "intervalo_padrao", maskHHMM(e.target.value, j.intervalo_padrao))}
                                   disabled={j.is_folga}
                                   placeholder="01:00"
                                   className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"

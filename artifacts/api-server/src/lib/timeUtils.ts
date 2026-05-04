@@ -1,3 +1,39 @@
+/**
+ * Normaliza uma string que representa um horário no formato `HH:MM`,
+ * aceitando também valores apenas com dígitos (sem `:`).
+ *
+ * Exemplos:
+ *   "08:00" -> "08:00"
+ *   "8:00"  -> "08:00"
+ *   "0800"  -> "08:00"
+ *   "800"   -> "08:00"
+ *   "8"     -> "08:00"
+ *   "17"    -> "17:00"
+ *   ""      -> null
+ *   null    -> null
+ *
+ * Retorna a string original quando o formato não puder ser identificado,
+ * para que a validação posterior possa rejeitá-la.
+ */
+export function normalizeHHMM(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (s.includes(":")) {
+    const parts = s.split(":");
+    if (parts.length !== 2) return s;
+    const hRaw = parts[0] ?? "";
+    const mRaw = parts[1] ?? "";
+    if (!/^\d{1,2}$/.test(hRaw) || !/^\d{1,2}$/.test(mRaw)) return s;
+    return `${hRaw.padStart(2, "0")}:${mRaw.padStart(2, "0")}`;
+  }
+  if (!/^\d+$/.test(s)) return s;
+  if (s.length <= 2) return `${s.padStart(2, "0")}:00`;
+  if (s.length === 3) return `0${s[0]}:${s.slice(1)}`;
+  if (s.length === 4) return `${s.slice(0, 2)}:${s.slice(2)}`;
+  return s;
+}
+
 export function timeToMinutes(time: string | null | undefined): number {
   if (!time) return 0;
   const parts = time.split(":");
