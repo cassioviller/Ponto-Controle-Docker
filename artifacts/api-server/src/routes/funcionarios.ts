@@ -20,6 +20,31 @@ import {
 
 const router = Router();
 
+type FuncionarioRow = typeof funcionariosTable.$inferSelect;
+
+function serializeFuncionario(row: FuncionarioRow) {
+  return {
+    ...row,
+    adiantamento: parseFloat(row.adiantamento ?? "0") || 0,
+  };
+}
+
+function normalizeAdiantamentoForDb<T extends { adiantamento?: unknown }>(
+  body: T,
+): Omit<T, "adiantamento"> & { adiantamento?: string } {
+  const { adiantamento, ...rest } = body;
+  if (adiantamento === undefined || adiantamento === null) {
+    return rest as Omit<T, "adiantamento"> & { adiantamento?: string };
+  }
+  const num = typeof adiantamento === "number"
+    ? adiantamento
+    : parseFloat(String(adiantamento));
+  return {
+    ...rest,
+    adiantamento: Number.isFinite(num) && num >= 0 ? num.toFixed(2) : "0",
+  } as Omit<T, "adiantamento"> & { adiantamento?: string };
+}
+
 const UPLOADS_ROOT = path.resolve(
   process.env["UPLOADS_DIR"] ?? path.join(process.cwd(), "uploads"),
 );
@@ -92,7 +117,7 @@ router.get("/funcionarios", async (req, res) => {
       rows = rows.filter((r) => r.ativo === query.ativo);
     }
 
-    res.json(rows);
+    res.json(rows.map(serializeFuncionario));
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }
@@ -102,12 +127,14 @@ router.post("/funcionarios", async (req, res) => {
   try {
     const body = CreateFuncionarioBody.parse(req.body);
     const empresaId = req.empresaId ?? req.body.empresa_id ?? null;
-    const data = insertFuncionarioSchema.parse({ ...body, empresa_id: empresaId });
+    const data = insertFuncionarioSchema.parse(
+      normalizeAdiantamentoForDb({ ...body, empresa_id: empresaId }),
+    );
     const [row] = await db
       .insert(funcionariosTable)
       .values(data)
       .returning();
-    res.status(201).json(row);
+    res.status(201).json(row ? serializeFuncionario(row) : row);
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }
@@ -130,7 +157,7 @@ router.get("/funcionarios/:id", async (req, res) => {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
     }
-    res.json(row);
+    res.json(serializeFuncionario(row));
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }
@@ -147,14 +174,14 @@ router.put("/funcionarios/:id", async (req, res) => {
 
     const [row] = await db
       .update(funcionariosTable)
-      .set(body)
+      .set(normalizeAdiantamentoForDb(body))
       .where(conditions.length === 1 ? conditions[0] : and(...conditions))
       .returning();
     if (!row) {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
     }
-    res.json(row);
+    res.json(serializeFuncionario(row));
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }
@@ -177,7 +204,10 @@ router.delete("/funcionarios/:id", async (req, res) => {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
     }
-    res.json({ message: "Funcionário desativado com sucesso", funcionario: updated[0] });
+    res.json({
+      message: "Funcionário desativado com sucesso",
+      funcionario: updated[0] ? serializeFuncionario(updated[0]) : updated[0],
+    });
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }

@@ -129,7 +129,7 @@ export default function ConsolidadoPage() {
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-700">{l.dias_trabalhados}</td>
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-500">{l.dom_feriados}</td>
                   <td className="px-4 py-2.5 text-right font-mono text-sm">
-                    {(parseFloat(l.adiantamento ?? "0") || 0) > 0 ? (
+                    {(l.adiantamento ?? 0) > 0 ? (
                       <span className="text-green-700 font-medium">{formatBRL(l.adiantamento)}</span>
                     ) : (
                       <span className="text-gray-300">{formatBRL(0)}</span>

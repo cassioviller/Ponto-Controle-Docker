@@ -24,7 +24,7 @@ export interface Funcionario {
   cargo: string;
   vinculo: string;
   situacao: string;
-  adiantamento: string;
+  adiantamento: number;
   transporte: boolean;
   jornada_diaria: string;
   ativo: boolean;
@@ -70,7 +70,7 @@ export interface CreateFuncionarioBody {
   cargo?: string;
   vinculo?: CreateFuncionarioBodyVinculo;
   situacao?: CreateFuncionarioBodySituacao;
-  adiantamento?: string;
+  adiantamento?: number;
   transporte?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
@@ -95,7 +95,7 @@ export interface UpdateFuncionarioBody {
   cargo?: string;
   vinculo?: string;
   situacao?: string;
-  adiantamento?: string;
+  adiantamento?: number;
   transporte?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
@@ -258,7 +258,7 @@ export interface ConsolidadoLinha {
   dom_feriados: number;
   horas_justificadas: string;
   dias_justificados: number;
-  adiantamento: string;
+  adiantamento: number;
 }
 
 export interface Consolidado {
@@ -274,7 +274,7 @@ export interface ResumoFuncionario {
   cargo: string;
   vinculo: string;
   situacao: string;
-  adiantamento: string;
+  adiantamento: number;
   transporte: boolean;
   jornada_diaria: string;
   faltas_dia: number;

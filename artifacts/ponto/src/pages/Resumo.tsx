@@ -195,7 +195,7 @@ export default function Resumo() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">
-                    {(parseFloat(r.adiantamento ?? "0") || 0) > 0 ? (
+                    {(r.adiantamento ?? 0) > 0 ? (
                       <span className="text-green-700 font-medium">{formatBRL(r.adiantamento)}</span>
                     ) : (
                       <span className="text-gray-300">{formatBRL(0)}</span>

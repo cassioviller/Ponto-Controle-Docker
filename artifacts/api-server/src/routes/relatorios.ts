@@ -109,7 +109,7 @@ router.get("/consolidado", async (req, res) => {
         dom_feriados: domFeriadosFunc,
         horas_justificadas: minutesToTime(horasJustMin),
         dias_justificados: diasJustificados,
-        adiantamento: f.adiantamento ?? "0",
+        adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
       };
     });
 
@@ -119,9 +119,9 @@ router.get("/consolidado", async (req, res) => {
         return acc + (h ?? 0) * 60 + (m ?? 0);
       }, 0));
 
-    const totalAdiantamento = linhas
-      .reduce((acc, l) => acc + (parseFloat(l.adiantamento) || 0), 0)
-      .toFixed(2);
+    const totalAdiantamento = Math.round(
+      linhas.reduce((acc, l) => acc + (l.adiantamento || 0) * 100, 0),
+    ) / 100;
 
     const totalGeral = {
       funcionario_id: 0,
@@ -214,7 +214,7 @@ router.get("/resumo", async (req, res) => {
         cargo: f.cargo,
         vinculo: f.vinculo,
         situacao: f.situacao,
-        adiantamento: f.adiantamento,
+        adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
         transporte: f.transporte,
         jornada_diaria: f.jornada_diaria,
         faltas_dia: faltasDia,

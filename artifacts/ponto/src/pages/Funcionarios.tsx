@@ -103,7 +103,7 @@ const EMPTY_FORM: FormState = {
   cargo: "",
   vinculo: "CLT" as CreateFuncionarioBodyVinculo,
   situacao: "Ativo" as CreateFuncionarioBodySituacao,
-  adiantamento: "0",
+  adiantamento: 0,
   transporte: false,
   jornada_diaria: "08:00",
   ativo: true,
@@ -224,7 +224,7 @@ export default function Funcionarios() {
       cargo: f.cargo,
       vinculo: f.vinculo as CreateFuncionarioBodyVinculo,
       situacao: f.situacao as CreateFuncionarioBodySituacao,
-      adiantamento: f.adiantamento ?? "0",
+      adiantamento: f.adiantamento ?? 0,
       transporte: f.transporte,
       jornada_diaria: f.jornada_diaria,
       ativo: f.ativo,
@@ -454,7 +454,7 @@ export default function Funcionarios() {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-right font-mono">
-                    {(parseFloat(f.adiantamento ?? "0") || 0) > 0 ? (
+                    {(f.adiantamento ?? 0) > 0 ? (
                       <span className="text-green-700 font-medium">{formatBRL(f.adiantamento)}</span>
                     ) : (
                       <span className="text-gray-300">{formatBRL(0)}</span>
@@ -594,18 +594,26 @@ export default function Funcionarios() {
                 <div className="grid grid-cols-3 gap-4 mt-4 items-end">
                   <div>
                     <label htmlFor="adiantamento" className="block text-xs font-medium text-gray-600 mb-1">
-                      Adiantamento (R$)
+                      Adiantamento
                     </label>
-                    <input
-                      id="adiantamento"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={form.adiantamento ?? "0"}
-                      onChange={(e) => setField("adiantamento", e.target.value)}
-                      className="w-full border rounded px-3 py-2 text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
-                      placeholder="0,00"
-                    />
+                    <div className="flex items-stretch border rounded overflow-hidden focus-within:ring-2 focus-within:ring-[#4A90D9]">
+                      <span className="px-2 inline-flex items-center bg-gray-50 text-gray-500 text-sm font-medium border-r">
+                        R$
+                      </span>
+                      <input
+                        id="adiantamento"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.adiantamento ?? 0}
+                        onChange={(e) => {
+                          const n = parseFloat(e.target.value);
+                          setField("adiantamento", Number.isFinite(n) && n >= 0 ? n : 0);
+                        }}
+                        className="flex-1 px-3 py-2 text-sm font-mono text-right focus:outline-none"
+                        placeholder="0,00"
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 pb-2">
                     <input
