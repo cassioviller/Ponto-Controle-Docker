@@ -652,7 +652,7 @@ export default function Funcionarios() {
                       className="w-full border rounded px-3 py-2 text-sm font-mono bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
                     />
                     <p className="mt-1 text-[11px] text-gray-500">
-                      Calculado pela maioria dos dias da jornada padrão.
+                      Calculado automaticamente pela maioria dos dias da jornada padrão.
                     </p>
                   </div>
                 </div>
