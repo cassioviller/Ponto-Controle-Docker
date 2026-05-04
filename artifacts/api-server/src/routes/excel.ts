@@ -124,10 +124,11 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
         vinculo: f.vinculo,
         situacao: f.situacao,
         jornada_diaria: f.jornada_diaria,
-        adiantamento: f.adiantamento ? "Sim" : "Não",
+        adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
         transporte: f.transporte ? "Sim" : "Não",
       });
     });
+    funcWs.getColumn("adiantamento").numFmt = '"R$" #,##0.00';
 
     const ws = wb.addWorksheet("Registros de Ponto");
 

@@ -4,21 +4,21 @@ import { funcionariosTable, registrosPontoTable, empresasTable, usuariosTable } 
 import { and, eq, isNull } from "drizzle-orm";
 
 const FUNCIONARIOS_SEED = [
-  { codigo: 1,  nome: "ARIEL RIBEIRO",                   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 4,  nome: "IRACY DE SOUZA MENEZES",          cargo: "",              vinculo: "Contribuinte", situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 11, nome: "FERNANDA MENDES HERREIRO",         cargo: "",              vinculo: "Autonomo",     situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 13, nome: "FAYANE TALITA DE SOUZA",           cargo: "",              vinculo: "Autonomo",     situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 15, nome: "MANOEL VICENTE DE QUEIROZ NETO",   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: true,  jornada_diaria: "08:00", ativo: true },
-  { codigo: 22, nome: "FERNANDA SANTOS PEREIRA",          cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: true,  jornada_diaria: "08:00", ativo: true },
-  { codigo: 23, nome: "DEBORA DE OLIVEIRA RAMOS DAVIES",  cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 24, nome: "EMANUEL FERREIRA SOUZA",           cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "06:00", ativo: true },
-  { codigo: 25, nome: "MATHEUS HENRIQUE MORAES MAXIMINO", cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "06:00", ativo: true },
-  { codigo: 26, nome: "MIGUEL ANDERSON DOS SANTOS",       cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: true,  jornada_diaria: "08:00", ativo: true },
-  { codigo: 27, nome: "GABRIEL MORAES DA SILVA",          cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 28, nome: "ESTEFANE MENEZES DOS SANTOS",      cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: true,  jornada_diaria: "08:00", ativo: true },
-  { codigo: 29, nome: "ANA CLARA CAMARGO DE AZEVEDO",     cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "08:00", ativo: true },
-  { codigo: 30, nome: "EXEMPLO COLABORADOR",              cargo: "Operador",      vinculo: "CLT",          situacao: "Ativo",  adiantamento: true,  transporte: true,  jornada_diaria: "08:00", ativo: true },
-  { codigo: 31, nome: "EXEMPLO ESTAGIÁRIO",               cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: false, transporte: false, jornada_diaria: "06:00", ativo: true },
+  { codigo: 1,  nome: "ARIEL RIBEIRO",                   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 4,  nome: "IRACY DE SOUZA MENEZES",          cargo: "",              vinculo: "Contribuinte", situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 11, nome: "FERNANDA MENDES HERREIRO",         cargo: "",              vinculo: "Autonomo",     situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 13, nome: "FAYANE TALITA DE SOUZA",           cargo: "",              vinculo: "Autonomo",     situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 15, nome: "MANOEL VICENTE DE QUEIROZ NETO",   cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: true,  jornada_diaria: "08:00", ativo: true },
+  { codigo: 22, nome: "FERNANDA SANTOS PEREIRA",          cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: true,  jornada_diaria: "08:00", ativo: true },
+  { codigo: 23, nome: "DEBORA DE OLIVEIRA RAMOS DAVIES",  cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 24, nome: "EMANUEL FERREIRA SOUZA",           cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "06:00", ativo: true },
+  { codigo: 25, nome: "MATHEUS HENRIQUE MORAES MAXIMINO", cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "06:00", ativo: true },
+  { codigo: 26, nome: "MIGUEL ANDERSON DOS SANTOS",       cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: true,  jornada_diaria: "08:00", ativo: true },
+  { codigo: 27, nome: "GABRIEL MORAES DA SILVA",          cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 28, nome: "ESTEFANE MENEZES DOS SANTOS",      cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: true,  jornada_diaria: "08:00", ativo: true },
+  { codigo: 29, nome: "ANA CLARA CAMARGO DE AZEVEDO",     cargo: "",              vinculo: "CLT",          situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "08:00", ativo: true },
+  { codigo: 30, nome: "EXEMPLO COLABORADOR",              cargo: "Operador",      vinculo: "CLT",          situacao: "Ativo",  adiantamento: "500.00", transporte: true,  jornada_diaria: "08:00", ativo: true },
+  { codigo: 31, nome: "EXEMPLO ESTAGIÁRIO",               cargo: "Estagiário",    vinculo: "Estagiario",   situacao: "Ativo",  adiantamento: "0",      transporte: false, jornada_diaria: "06:00", ativo: true },
 ] as const;
 
 type SeedReg = { data: string; entrada: string; saida: string; intervalo: string; faltas: string };

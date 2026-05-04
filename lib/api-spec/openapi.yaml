@@ -443,7 +443,7 @@ components:
         situacao:
           type: string
         adiantamento:
-          type: boolean
+          type: string
         transporte:
           type: boolean
         jornada_diaria:
@@ -520,7 +520,7 @@ components:
           type: string
           enum: [Ativo, Demitido, Aviso, Ferias]
         adiantamento:
-          type: boolean
+          type: string
         transporte:
           type: boolean
         jornada_diaria:
@@ -584,7 +584,7 @@ components:
         situacao:
           type: string
         adiantamento:
-          type: boolean
+          type: string
         transporte:
           type: boolean
         jornada_diaria:
@@ -872,6 +872,8 @@ components:
           type: string
         dias_justificados:
           type: integer
+        adiantamento:
+          type: string
       required:
         - funcionario_id
         - nome
@@ -884,6 +886,7 @@ components:
         - dom_feriados
         - horas_justificadas
         - dias_justificados
+        - adiantamento
 
     Consolidado:
       type: object
@@ -917,7 +920,7 @@ components:
         situacao:
           type: string
         adiantamento:
-          type: boolean
+          type: string
         transporte:
           type: boolean
         jornada_diaria:

@@ -16,7 +16,7 @@ import type {
   FuncionarioArquivo,
 } from "@workspace/api-client-react";
 import { useEmpresa } from "@/contexts/EmpresaContext";
-import { baseUrl, authHeaders } from "@/lib/utils";
+import { baseUrl, authHeaders, formatBRL } from "@/lib/utils";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
 const SITUACOES = ["Ativo", "Demitido", "Aviso", "Ferias"];
@@ -103,7 +103,7 @@ const EMPTY_FORM: FormState = {
   cargo: "",
   vinculo: "CLT" as CreateFuncionarioBodyVinculo,
   situacao: "Ativo" as CreateFuncionarioBodySituacao,
-  adiantamento: false,
+  adiantamento: "0",
   transporte: false,
   jornada_diaria: "08:00",
   ativo: true,
@@ -224,7 +224,7 @@ export default function Funcionarios() {
       cargo: f.cargo,
       vinculo: f.vinculo as CreateFuncionarioBodyVinculo,
       situacao: f.situacao as CreateFuncionarioBodySituacao,
-      adiantamento: f.adiantamento,
+      adiantamento: f.adiantamento ?? "0",
       transporte: f.transporte,
       jornada_diaria: f.jornada_diaria,
       ativo: f.ativo,
@@ -417,7 +417,7 @@ export default function Funcionarios() {
                 <th className="px-3 py-2.5 text-left font-semibold">Cargo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Vínculo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Situação</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Adianto.</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Adianto. (R$)</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Transp.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Jornada</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ativo</th>
@@ -453,8 +453,12 @@ export default function Funcionarios() {
                       {SITUACAO_LABEL[f.situacao] ?? f.situacao}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
-                    {f.adiantamento ? <span className="text-green-600 font-bold">S</span> : <span className="text-gray-300">N</span>}
+                  <td className="px-3 py-2 text-right font-mono">
+                    {(parseFloat(f.adiantamento ?? "0") || 0) > 0 ? (
+                      <span className="text-green-700 font-medium">{formatBRL(f.adiantamento)}</span>
+                    ) : (
+                      <span className="text-gray-300">{formatBRL(0)}</span>
+                    )}
                   </td>
                   <td className="px-3 py-2 text-center">
                     {f.transporte ? <span className="text-green-600 font-bold">S</span> : <span className="text-gray-300">N</span>}
@@ -587,18 +591,23 @@ export default function Funcionarios() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div className="flex items-center gap-2">
+                <div className="grid grid-cols-3 gap-4 mt-4 items-end">
+                  <div>
+                    <label htmlFor="adiantamento" className="block text-xs font-medium text-gray-600 mb-1">
+                      Adiantamento (R$)
+                    </label>
                     <input
-                      type="checkbox"
                       id="adiantamento"
-                      checked={form.adiantamento ?? false}
-                      onChange={(e) => setField("adiantamento", e.target.checked)}
-                      className="w-4 h-4 accent-[#4A90D9]"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.adiantamento ?? "0"}
+                      onChange={(e) => setField("adiantamento", e.target.value)}
+                      className="w-full border rounded px-3 py-2 text-sm font-mono text-right focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      placeholder="0,00"
                     />
-                    <label htmlFor="adiantamento" className="text-sm text-gray-700">Adiantamento</label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pb-2">
                     <input
                       type="checkbox"
                       id="transporte"
@@ -608,7 +617,7 @@ export default function Funcionarios() {
                     />
                     <label htmlFor="transporte" className="text-sm text-gray-700">Transporte</label>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pb-2">
                     <input
                       type="checkbox"
                       id="ativo"

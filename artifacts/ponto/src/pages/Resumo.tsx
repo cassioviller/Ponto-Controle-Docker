@@ -6,7 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile } from "@/lib/utils";
+import { formatMes, getCurrentMes, getMonthOptions, baseUrl, authHeaders, downloadAuthenticatedFile, formatBRL } from "@/lib/utils";
 import type { ResumoFuncionario } from "@workspace/api-client-react";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
@@ -139,7 +139,7 @@ export default function Resumo() {
                 <th className="px-3 py-2.5 text-left font-semibold">Vínculo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Cargo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Situação</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Adianto.</th>
+                <th className="px-3 py-2.5 text-right font-semibold">Adianto. (R$)</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Transp.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Dia</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Hrs</th>
@@ -194,11 +194,11 @@ export default function Resumo() {
                       {SITUACAO_LABEL[r.situacao] ?? r.situacao}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-center">
-                    {r.adiantamento ? (
-                      <span className="text-green-600 font-bold">S</span>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {(parseFloat(r.adiantamento ?? "0") || 0) > 0 ? (
+                      <span className="text-green-700 font-medium">{formatBRL(r.adiantamento)}</span>
                     ) : (
-                      <span className="text-gray-300">N</span>
+                      <span className="text-gray-300">{formatBRL(0)}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-center">

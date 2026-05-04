@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS funcionarios (
   cargo TEXT NOT NULL DEFAULT '',
   vinculo TEXT NOT NULL DEFAULT 'CLT',
   situacao TEXT NOT NULL DEFAULT 'Ativo',
-  adiantamento BOOLEAN NOT NULL DEFAULT FALSE,
+  adiantamento NUMERIC(12,2) NOT NULL DEFAULT 0,
   transporte BOOLEAN NOT NULL DEFAULT FALSE,
   jornada_diaria TEXT NOT NULL DEFAULT '08:00',
   ativo BOOLEAN NOT NULL DEFAULT TRUE,
@@ -134,6 +134,21 @@ ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS raca_cor TEXT;
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS horario TEXT;
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS escolaridade TEXT;
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS pis TEXT;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'funcionarios'
+      AND column_name = 'adiantamento'
+      AND data_type = 'boolean'
+  ) THEN
+    ALTER TABLE funcionarios ALTER COLUMN adiantamento DROP DEFAULT;
+    ALTER TABLE funcionarios ALTER COLUMN adiantamento TYPE NUMERIC(12,2) USING 0;
+    ALTER TABLE funcionarios ALTER COLUMN adiantamento SET DEFAULT 0;
+    ALTER TABLE funcionarios ALTER COLUMN adiantamento SET NOT NULL;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS funcionario_arquivos (
   id SERIAL PRIMARY KEY,

@@ -12,7 +12,7 @@ export const funcionariosTable = pgTable("funcionarios", {
   cargo: text("cargo").notNull().default(""),
   vinculo: text("vinculo").notNull().default("CLT"),
   situacao: text("situacao").notNull().default("Ativo"),
-  adiantamento: boolean("adiantamento").notNull().default(false),
+  adiantamento: numeric("adiantamento", { precision: 12, scale: 2 }).notNull().default("0"),
   transporte: boolean("transporte").notNull().default(false),
   jornada_diaria: text("jornada_diaria").notNull().default("08:00"),
   ativo: boolean("ativo").notNull().default(true),

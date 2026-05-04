@@ -109,6 +109,7 @@ router.get("/consolidado", async (req, res) => {
         dom_feriados: domFeriadosFunc,
         horas_justificadas: minutesToTime(horasJustMin),
         dias_justificados: diasJustificados,
+        adiantamento: f.adiantamento ?? "0",
       };
     });
 
@@ -117,6 +118,10 @@ router.get("/consolidado", async (req, res) => {
         const [h, m] = l[field].split(":").map(Number);
         return acc + (h ?? 0) * 60 + (m ?? 0);
       }, 0));
+
+    const totalAdiantamento = linhas
+      .reduce((acc, l) => acc + (parseFloat(l.adiantamento) || 0), 0)
+      .toFixed(2);
 
     const totalGeral = {
       funcionario_id: 0,
@@ -131,6 +136,7 @@ router.get("/consolidado", async (req, res) => {
       dom_feriados: linhas.reduce((acc, l) => acc + l.dom_feriados, 0),
       horas_justificadas: sumHHMM(linhas, "horas_justificadas"),
       dias_justificados: linhas.reduce((acc, l) => acc + l.dias_justificados, 0),
+      adiantamento: totalAdiantamento,
     };
 
     res.json({ mes, linhas, total_geral: totalGeral });

@@ -44,6 +44,18 @@ export function formatTime(t: string | null | undefined): string {
   return t;
 }
 
+const BRL_FORMATTER = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+export function formatBRL(val: string | number | null | undefined): string {
+  if (val === null || val === undefined || val === "") return BRL_FORMATTER.format(0);
+  const num = typeof val === "string" ? parseFloat(val) : val;
+  if (!Number.isFinite(num)) return BRL_FORMATTER.format(0);
+  return BRL_FORMATTER.format(num);
+}
+
 export function baseUrl(): string {
   return import.meta.env.BASE_URL.replace(/\/$/, "");
 }

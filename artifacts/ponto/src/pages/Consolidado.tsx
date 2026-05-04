@@ -4,7 +4,7 @@ import {
   getGetConsolidadoQueryKey,
 } from "@workspace/api-client-react";
 import { useLocation } from "wouter";
-import { formatMes, getCurrentMes, getMonthOptions } from "@/lib/utils";
+import { formatMes, getCurrentMes, getMonthOptions, formatBRL } from "@/lib/utils";
 import type { Consolidado } from "@workspace/api-client-react";
 
 export default function ConsolidadoPage() {
@@ -61,19 +61,20 @@ export default function ConsolidadoPage() {
                 <th className="px-4 py-3 text-center font-semibold">Dias Just.</th>
                 <th className="px-4 py-3 text-center font-semibold">Dias Trab.</th>
                 <th className="px-4 py-3 text-center font-semibold">Dom/Fer.</th>
+                <th className="px-4 py-3 text-right font-semibold">Adianto. (R$)</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-gray-400">
+                  <td colSpan={12} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && linhas.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="text-center py-12 text-gray-400">
+                  <td colSpan={12} className="text-center py-12 text-gray-400">
                     Nenhum dado para {formatMes(mes)}.
                   </td>
                 </tr>
@@ -127,6 +128,13 @@ export default function ConsolidadoPage() {
                   </td>
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-700">{l.dias_trabalhados}</td>
                   <td className="px-4 py-2.5 text-center font-mono text-sm text-gray-500">{l.dom_feriados}</td>
+                  <td className="px-4 py-2.5 text-right font-mono text-sm">
+                    {(parseFloat(l.adiantamento ?? "0") || 0) > 0 ? (
+                      <span className="text-green-700 font-medium">{formatBRL(l.adiantamento)}</span>
+                    ) : (
+                      <span className="text-gray-300">{formatBRL(0)}</span>
+                    )}
+                  </td>
                 </tr>
               ))}
               {total && linhas.length > 0 && (
@@ -142,6 +150,7 @@ export default function ConsolidadoPage() {
                   <td className="px-4 py-3 text-center font-mono text-sm text-blue-300">{total.dias_justificados ?? 0}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm">{total.dias_trabalhados}</td>
                   <td className="px-4 py-3 text-center font-mono text-sm">{total.dom_feriados}</td>
+                  <td className="px-4 py-3 text-right font-mono text-sm text-green-300">{formatBRL(total.adiantamento)}</td>
                 </tr>
               )}
             </tbody>
