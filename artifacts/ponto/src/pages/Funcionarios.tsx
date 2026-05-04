@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   useGetFuncionarios,
   useCreateFuncionario,
@@ -80,6 +80,51 @@ function defaultJornada(jornada_diaria: string): JornadaDia[] {
     intervalo_padrao: num === 0 || num === 6 ? "" : jornada_diaria === "06:00" ? "00:00" : "01:00",
     is_folga: num === 0 || num === 6,
   }));
+}
+
+const HHMM_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
+
+function hhmmToMinutes(hhmm: string): number | null {
+  if (!HHMM_RE.test(hhmm)) return null;
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+function minutesToHHMM(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Calcula a jornada diária mais frequente entre os dias não-folga
+ * com entrada+saída válidas. Duração = (saída − entrada) − intervalo.
+ * Empate ⇒ menor valor. Sem dias válidos ⇒ null.
+ */
+export function computeJornadaDiariaFromPadrao(jornadas: JornadaDia[]): string | null {
+  const counts = new Map<number, number>();
+  for (const j of jornadas) {
+    if (j.is_folga) continue;
+    const entrada = hhmmToMinutes(j.entrada_padrao);
+    const saida = hhmmToMinutes(j.saida_padrao);
+    if (entrada == null || saida == null) continue;
+    const intervalo = j.intervalo_padrao
+      ? hhmmToMinutes(j.intervalo_padrao) ?? 0
+      : 0;
+    const diff = saida - entrada - intervalo;
+    if (diff <= 0) continue;
+    counts.set(diff, (counts.get(diff) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+  let bestMin = Infinity;
+  let bestCount = -1;
+  for (const [min, count] of counts) {
+    if (count > bestCount || (count === bestCount && min < bestMin)) {
+      bestCount = count;
+      bestMin = min;
+    }
+  }
+  return minutesToHHMM(bestMin);
 }
 
 type FormState = Partial<CreateFuncionarioBody & { id?: number }> & {
@@ -255,6 +300,20 @@ export default function Funcionarios() {
       prev.map((j) => (j.dia_semana === diaSemana ? { ...j, [field]: value } : j))
     );
   }
+
+  const jornadaDiariaCalculada = useMemo(
+    () => computeJornadaDiariaFromPadrao(jornadas),
+    [jornadas],
+  );
+
+  useEffect(() => {
+    if (jornadaDiariaCalculada == null) return;
+    setForm((p) =>
+      p.jornada_diaria === jornadaDiariaCalculada
+        ? p
+        : { ...p, jornada_diaria: jornadaDiariaCalculada },
+    );
+  }, [jornadaDiariaCalculada]);
 
   async function saveJornadas(funcionarioId: number) {
     const base = baseUrl();
@@ -585,18 +644,16 @@ export default function Funcionarios() {
                     <label className="block text-xs font-medium text-gray-600 mb-1">Jornada Diária</label>
                     <input
                       type="text"
-                      inputMode="numeric"
-                      value={form.jornada_diaria ?? "08:00"}
-                      onChange={(e) => {
-                        const next = e.target.value;
-                        setForm((p) => ({
-                          ...p,
-                          jornada_diaria: maskHHMM(next, p.jornada_diaria ?? ""),
-                        }));
-                      }}
-                      placeholder="08:00"
-                      className="w-full border rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#4A90D9]"
+                      readOnly
+                      tabIndex={-1}
+                      value={jornadaDiariaCalculada ?? form.jornada_diaria ?? "—"}
+                      placeholder="—"
+                      title="Calculado automaticamente pela maioria dos dias da jornada padrão"
+                      className="w-full border rounded px-3 py-2 text-sm font-mono bg-gray-50 text-gray-700 cursor-not-allowed focus:outline-none"
                     />
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      Calculado pela maioria dos dias da jornada padrão.
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4 mt-4 items-end">
