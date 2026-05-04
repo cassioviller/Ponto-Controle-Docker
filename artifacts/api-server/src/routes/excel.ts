@@ -28,6 +28,7 @@ import {
   brToIsoDate,
   timeToMinutes,
   normalizeHHMM,
+  computeSemanaForDate,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
 
@@ -458,8 +459,18 @@ router.post("/importar", async (req: Request, res: Response) => {
       .select()
       .from(jornadasPadraoTable)
       .where(eq(jornadasPadraoTable.funcionario_id, funcionarioId));
-    const jornadaByDow = new Map<number, typeof jornadasRows[number]>();
-    for (const j of jornadasRows) jornadaByDow.set(j.dia_semana, j);
+    // Chaveado por `${dow}-${semana}`. Funcionários sem escala quinzenal só têm semana=1.
+    const jornadaByDowSemana = new Map<string, typeof jornadasRows[number]>();
+    for (const j of jornadasRows) jornadaByDowSemana.set(`${j.dia_semana}-${j.semana}`, j);
+    const pickJornada = (dateStr: string, dow: number) => {
+      const semana = funcionario.escala_quinzenal
+        ? computeSemanaForDate(dateStr, funcionario.quinzena_referencia ?? null)
+        : 1;
+      return (
+        jornadaByDowSemana.get(`${dow}-${semana}`) ??
+        (semana === 2 ? jornadaByDowSemana.get(`${dow}-1`) : undefined)
+      );
+    };
 
     const feriadoEmpresaId = empresaId ?? funcionario.empresa_id ?? null;
     const feriadoRows = feriadoEmpresaId !== null
@@ -651,7 +662,7 @@ router.post("/importar", async (req: Request, res: Response) => {
       }
 
       const dow = getDiaSemanaNum(dataStr);
-      const jornadaDoDia = jornadaByDow.get(dow);
+      const jornadaDoDia = pickJornada(dataStr, dow);
       const isFeriadoEmp = feriadoSet.has(dataStr);
       const jornadaInfo = jornadaDoDia ? {
         entrada_padrao: jornadaDoDia.entrada_padrao,

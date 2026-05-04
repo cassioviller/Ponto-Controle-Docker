@@ -10,6 +10,11 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+function normalizeSemana(raw: unknown): 1 | 2 {
+  const n = typeof raw === "number" ? raw : parseInt(String(raw ?? 1), 10);
+  return n === 2 ? 2 : 1;
+}
+
 router.get("/funcionarios/:id/jornadas", async (req, res) => {
   try {
     const funcionarioId = parseInt(req.params.id ?? "0", 10);
@@ -44,6 +49,7 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
 
     const jornadas: Array<{
       dia_semana: number;
+      semana?: number;
       empresa_id?: number;
       entrada_padrao?: string | null;
       saida_padrao?: string | null;
@@ -62,6 +68,7 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
 
     const result = [];
     for (const j of jornadas) {
+      const semana = normalizeSemana(j.semana);
       const existing = await db
         .select()
         .from(jornadasPadraoTable)
@@ -69,6 +76,7 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
           and(
             eq(jornadasPadraoTable.funcionario_id, funcionarioId),
             eq(jornadasPadraoTable.dia_semana, j.dia_semana),
+            eq(jornadasPadraoTable.semana, semana),
           )
         );
 
@@ -95,6 +103,7 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
             funcionario_id: funcionarioId,
             empresa_id: jornadaEmpresaId,
             dia_semana: j.dia_semana,
+            semana,
             entrada_padrao: j.entrada_padrao ?? null,
             saida_padrao: j.saida_padrao ?? null,
             intervalo_padrao: j.intervalo_padrao ?? null,
@@ -103,6 +112,21 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
           .returning();
         result.push(inserted);
       }
+    }
+
+    // Limpa jornadas de Semana B órfãs: se nenhuma linha enviada tem semana=2,
+    // significa que o funcionário desligou a escala quinzenal (ou nunca teve).
+    // Mantê-las criaria estado inconsistente caso a flag seja reativada depois.
+    const incomingHasSemanaB = jornadas.some((j) => normalizeSemana(j.semana) === 2);
+    if (!incomingHasSemanaB) {
+      await db
+        .delete(jornadasPadraoTable)
+        .where(
+          and(
+            eq(jornadasPadraoTable.funcionario_id, funcionarioId),
+            eq(jornadasPadraoTable.semana, 2),
+          ),
+        );
     }
 
     res.json(result);

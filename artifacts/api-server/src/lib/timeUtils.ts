@@ -429,6 +429,45 @@ export function getDiaSemanaNum(dateStr: string): number {
   return new Date(dateStr + "T00:00:00").getDay();
 }
 
+/**
+ * Para um funcionário com escala quinzenal, decide se uma data cai na
+ * Semana A (1) ou Semana B (2). A Semana A é definida como aquela em que cai
+ * `referenciaDateStr` (a data de referência informada no cadastro). A semana
+ * é calculada pela segunda-feira ISO da data: dois dias caem na MESMA semana
+ * quando suas segundas-feiras são iguais; senão, alterna a cada semana.
+ *
+ * Sem `referenciaDateStr`, sempre retorna 1 (mantém compat).
+ */
+export function computeSemanaForDate(
+  dateStr: string,
+  referenciaDateStr: string | null | undefined,
+): 1 | 2 {
+  if (!referenciaDateStr) return 1;
+  const target = mondayOfIsoWeek(dateStr);
+  const ref = mondayOfIsoWeek(referenciaDateStr);
+  if (!target || !ref) return 1;
+  const diffDays = Math.round((target.getTime() - ref.getTime()) / 86400000);
+  const weeks = Math.floor(diffDays / 7);
+  // weeks par → mesma semana da referência (Semana A); ímpar → Semana B.
+  // Math.floor garante que weeks negativos (data antes da referência) também alternem corretamente.
+  return ((weeks % 2) + 2) % 2 === 0 ? 1 : 2;
+}
+
+function mondayOfIsoWeek(dateStr: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (!m) return null;
+  const y = parseInt(m[1] ?? "0", 10);
+  const mo = parseInt(m[2] ?? "0", 10);
+  const da = parseInt(m[3] ?? "0", 10);
+  const d = new Date(y, mo - 1, da);
+  // getDay(): 0=Dom, 1=Seg, ..., 6=Sab. Queremos andar pra trás até a segunda.
+  const dow = d.getDay();
+  const offsetToMonday = dow === 0 ? -6 : 1 - dow;
+  d.setDate(d.getDate() + offsetToMonday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function getDaysInMonth(year: number, month: number): string[] {
   const days: string[] = [];
   const d = new Date(year, month - 1, 1);

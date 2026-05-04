@@ -30,6 +30,7 @@ import {
   isDomFeriado,
   timeToMinutes,
   deriveIntervalo,
+  computeSemanaForDate,
   type TipoDia,
 } from "../lib/timeUtils";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
@@ -46,8 +47,15 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function getJornadaDia(funcionarioId: number, dateStr: string) {
+async function getJornadaDia(
+  funcionarioId: number,
+  dateStr: string,
+  funcionario?: { escala_quinzenal?: boolean | null; quinzena_referencia?: string | null } | null,
+) {
   const diaSemana = getDiaSemanaNum(dateStr);
+  const semana = funcionario?.escala_quinzenal
+    ? computeSemanaForDate(dateStr, funcionario.quinzena_referencia ?? null)
+    : 1;
   const jornadas = await db
     .select()
     .from(jornadasPadraoTable)
@@ -55,9 +63,25 @@ async function getJornadaDia(funcionarioId: number, dateStr: string) {
       and(
         eq(jornadasPadraoTable.funcionario_id, funcionarioId),
         eq(jornadasPadraoTable.dia_semana, diaSemana),
+        eq(jornadasPadraoTable.semana, semana),
       )
     );
-  return jornadas[0] ?? null;
+  // Fallback: se não houver linha para a Semana B, usa a Semana A (compat).
+  if (jornadas[0]) return jornadas[0];
+  if (semana === 2) {
+    const fallback = await db
+      .select()
+      .from(jornadasPadraoTable)
+      .where(
+        and(
+          eq(jornadasPadraoTable.funcionario_id, funcionarioId),
+          eq(jornadasPadraoTable.dia_semana, diaSemana),
+          eq(jornadasPadraoTable.semana, 1),
+        )
+      );
+    return fallback[0] ?? null;
+  }
+  return null;
 }
 
 async function isFeriadoEmpresa(empresaId: number | undefined, dateStr: string): Promise<boolean> {
@@ -107,12 +131,20 @@ router.get("/funcionarios/:id/registros", async (req, res) => {
       .select()
       .from(jornadasPadraoTable)
       .where(eq(jornadasPadraoTable.funcionario_id, id));
-    const jornadaMap = new Map(jornadas.map((j) => [j.dia_semana, j]));
+    // Chaveado por (dia_semana, semana). Para funcionários sem escala quinzenal,
+    // só existem rows com semana=1.
+    const jornadaMap = new Map<string, typeof jornadas[number]>();
+    for (const j of jornadas) jornadaMap.set(`${j.dia_semana}-${j.semana}`, j);
 
     const folhaDias = days.map((data) => {
       const reg = registroMap.get(data);
       const diaSemana = getDiaSemanaNum(data);
-      const jornada = jornadaMap.get(diaSemana) ?? null;
+      const semana = funcionario.escala_quinzenal
+        ? computeSemanaForDate(data, funcionario.quinzena_referencia ?? null)
+        : 1;
+      const jornada =
+        jornadaMap.get(`${diaSemana}-${semana}`) ??
+        (semana === 2 ? jornadaMap.get(`${diaSemana}-1`) ?? null : null);
       return {
         id: reg?.id ?? null,
         funcionario_id: id,
@@ -219,7 +251,7 @@ router.post("/registros", async (req, res) => {
 
     const jornadaDiaria = funcionario.jornada_diaria ?? "08:00";
 
-    const jornadaDia = await getJornadaDia(body.funcionario_id, body.data);
+    const jornadaDia = await getJornadaDia(body.funcionario_id, body.data, funcionario);
     const feriadoEmpresa = await isFeriadoEmpresa(empresaId, body.data);
 
     // Permite salvar apenas uma das pontas do intervalo (saída/volta de almoço).
@@ -457,7 +489,7 @@ router.post("/ponto/bater", async (req, res) => {
         .where(eq(registrosPontoTable.id, prevReg.id))
         .returning();
     } else {
-      const jornadaDia = await getJornadaDia(body.funcionario_id, data);
+      const jornadaDia = await getJornadaDia(body.funcionario_id, data, funcionario);
       const feriadoEmpresa = await isFeriadoEmpresa(empresaId, data);
       const intervaloFinal = prevReg.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
 

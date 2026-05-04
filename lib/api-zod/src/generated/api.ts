@@ -47,6 +47,8 @@ export const GetFuncionariosResponseItem = zod.object({
   horario: zod.string().nullish(),
   escolaridade: zod.string().nullish(),
   pis: zod.string().nullish(),
+  escala_quinzenal: zod.boolean(),
+  quinzena_referencia: zod.string().nullish(),
   criado_em: zod.string(),
 });
 export const GetFuncionariosResponse = zod.array(GetFuncionariosResponseItem);
@@ -79,6 +81,8 @@ export const CreateFuncionarioBody = zod.object({
   horario: zod.string().nullish(),
   escolaridade: zod.string().nullish(),
   pis: zod.string().nullish(),
+  escala_quinzenal: zod.boolean().optional(),
+  quinzena_referencia: zod.string().nullish(),
 });
 
 /**
@@ -112,6 +116,8 @@ export const GetFuncionarioResponse = zod.object({
   horario: zod.string().nullish(),
   escolaridade: zod.string().nullish(),
   pis: zod.string().nullish(),
+  escala_quinzenal: zod.boolean(),
+  quinzena_referencia: zod.string().nullish(),
   criado_em: zod.string(),
 });
 
@@ -145,6 +151,8 @@ export const UpdateFuncionarioBody = zod.object({
   horario: zod.string().nullish(),
   escolaridade: zod.string().nullish(),
   pis: zod.string().nullish(),
+  escala_quinzenal: zod.boolean().optional(),
+  quinzena_referencia: zod.string().nullish(),
 });
 
 export const UpdateFuncionarioResponse = zod.object({
@@ -171,6 +179,8 @@ export const UpdateFuncionarioResponse = zod.object({
   horario: zod.string().nullish(),
   escolaridade: zod.string().nullish(),
   pis: zod.string().nullish(),
+  escala_quinzenal: zod.boolean(),
+  quinzena_referencia: zod.string().nullish(),
   criado_em: zod.string(),
 });
 
@@ -263,6 +273,8 @@ export const GetRegistrosFuncionarioResponse = zod.object({
     horario: zod.string().nullish(),
     escolaridade: zod.string().nullish(),
     pis: zod.string().nullish(),
+    escala_quinzenal: zod.boolean(),
+    quinzena_referencia: zod.string().nullish(),
     criado_em: zod.string(),
   }),
   mes: zod.string(),

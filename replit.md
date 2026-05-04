@@ -77,14 +77,26 @@ lib/
 Tables:
 - `empresas` — companies (nome, cnpj, plano)
 - `usuarios` — admin users per empresa (nome, email, senha_hash, role)
-- `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento [NUMERIC(12,2) em R$, default 0], transporte, jornada_diária; plus optional CLT fields: empresa, data_contrato, salario, endereço, número, bairro, cidade, cep, estado_civil, raca_cor, horário, escolaridade, pis)
+- `funcionarios` — employees (empresa_id, código, nome, cargo, vínculo, situação, adiantamento [NUMERIC(12,2) em R$, default 0], transporte, jornada_diária, **escala_quinzenal** [bool], **quinzena_referencia** [date]; plus optional CLT fields: empresa, data_contrato, salario, endereço, número, bairro, cidade, cep, estado_civil, raca_cor, horário, escolaridade, pis)
 - `funcionario_arquivos` — uploaded documents per employee (funcionario_id FK, nome_arquivo, tipo_arquivo, caminho on disk, criado_em). Files saved under `${UPLOADS_DIR-./uploads}/funcionarios/:id/`.
 - `registros_ponto` — daily time records per employee (empresa_id, entrada, saída, saida_almoco, volta_almoco, intervalo, total_horas, HE 60%, HE 100%, atrasos, faltas, observações, justificativa, horas_justificadas)
-- `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, entrada_padrao, saida_padrao, intervalo_padrao, is_folga)
+- `jornadas_padrao` — weekly schedule per employee/day (funcionario_id, empresa_id, dia_semana 0=Sun..6=Sat, **semana** smallint 1=A 2=B, entrada_padrao, saida_padrao, intervalo_padrao, is_folga). UNIQUE em (funcionario_id, dia_semana, semana). Funcionários sem `escala_quinzenal` só têm linhas com semana=1.
 - `feriados` — holidays per empresa (data, descricao, tipo)
 
 Migrations run automatically on server start via `lib/db/src/init.ts`.
 Seeded with default empresa + admin user; existing employees migrated to empresa_id=1.
+
+## Escala Quinzenal (Semana A / Semana B)
+
+Funcionários com `escala_quinzenal=true` alternam duas Jornadas Padrão (Semana A e Semana B) a cada 7 dias, válido para qualquer dia da semana ("sábado sim, sábado não", etc).
+
+- A semana de cada data é derivada por `computeSemanaForDate(dateStr, quinzena_referencia)` em `artifacts/api-server/src/lib/timeUtils.ts`: diferença em semanas entre as segundas-feiras ISO da data e da referência; par → Semana A, ímpar → Semana B.
+- Se `quinzena_referencia` é `null` ou `escala_quinzenal=false`, todas as datas usam Semana A.
+- Fallback: se há linha de Semana A para o dia mas não Semana B, usa Semana A.
+- Em folga-quinzenal sem horários: tratado como folga (zero faltas/HE).
+- Em dia trabalhado quinzenal: horas contam como **normais** (não viram HE), respeitando a jornada da semana correta.
+- UI: tela Funcionários → toggle "Escala quinzenal" + date picker "Data de referência (Semana A)" + segunda tabela "Semana B". Validação no save: se quinzenal estiver ON, data de referência é obrigatória.
+- PUT `/funcionarios/:id/jornadas` faz upsert por (funcionario_id, dia_semana, semana) e remove linhas órfãs de Semana B quando o array enviado não contém nenhuma linha com semana=2.
 
 ## Auto-Calculation Logic
 

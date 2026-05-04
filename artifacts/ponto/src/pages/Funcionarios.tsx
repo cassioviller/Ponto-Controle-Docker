@@ -82,6 +82,14 @@ function defaultJornada(jornada_diaria: string): JornadaDia[] {
   }));
 }
 
+/**
+ * Default Semana B para escala quinzenal: começa "espelhando" Semana A —
+ * o usuário ajusta o que diferencia (tipicamente o sábado vira folga ou vice-versa).
+ */
+function defaultJornadaSemanaB(jornadaA: JornadaDia[]): JornadaDia[] {
+  return jornadaA.map((j) => ({ ...j }));
+}
+
 const HHMM_RE = /^([01]?\d|2[0-3]):[0-5]\d$/;
 
 function hhmmToMinutes(hhmm: string): number | null {
@@ -141,6 +149,8 @@ type FormState = Partial<CreateFuncionarioBody & { id?: number }> & {
   horario?: string | null;
   escolaridade?: string | null;
   pis?: string | null;
+  escala_quinzenal?: boolean;
+  quinzena_referencia?: string | null;
 };
 
 const EMPTY_FORM: FormState = {
@@ -166,6 +176,8 @@ const EMPTY_FORM: FormState = {
   horario: "",
   escolaridade: "",
   pis: "",
+  escala_quinzenal: false,
+  quinzena_referencia: "",
 };
 
 function fileTypeIcon(mime: string): string {
@@ -190,6 +202,7 @@ export default function Funcionarios() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [jornadas, setJornadas] = useState<JornadaDia[]>(defaultJornada("08:00"));
+  const [jornadasB, setJornadasB] = useState<JornadaDia[]>(defaultJornada("08:00"));
   const [loadingJornadas, setLoadingJornadas] = useState(false);
   const [arquivos, setArquivos] = useState<FuncionarioArquivo[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -206,15 +219,20 @@ export default function Funcionarios() {
       if (resp.ok) {
         const data = await resp.json() as Array<{
           dia_semana: number;
+          semana?: number | null;
           entrada_padrao: string | null;
           saida_padrao: string | null;
           intervalo_padrao: string | null;
           is_folga: boolean;
         }>;
-        const jornadaMap = new Map(data.map((j) => [j.dia_semana, j]));
-        setJornadas(
-          DIAS_SEMANA.map(({ num }) => {
-            const j = jornadaMap.get(num);
+        const mapForSemana = (semana: 1 | 2) => {
+          const map = new Map(
+            data
+              .filter((j) => (j.semana ?? 1) === semana)
+              .map((j) => [j.dia_semana, j]),
+          );
+          return DIAS_SEMANA.map(({ num }) => {
+            const j = map.get(num);
             if (j) {
               return {
                 dia_semana: num,
@@ -225,13 +243,21 @@ export default function Funcionarios() {
               };
             }
             return defaultJornada(jornadaDiaria).find((d) => d.dia_semana === num)!;
-          })
-        );
+          });
+        };
+        const semA = mapForSemana(1);
+        const hasSemB = data.some((j) => (j.semana ?? 1) === 2);
+        setJornadas(semA);
+        setJornadasB(hasSemB ? mapForSemana(2) : defaultJornadaSemanaB(semA));
       } else {
-        setJornadas(defaultJornada(jornadaDiaria));
+        const fallback = defaultJornada(jornadaDiaria);
+        setJornadas(fallback);
+        setJornadasB(defaultJornadaSemanaB(fallback));
       }
     } catch {
-      setJornadas(defaultJornada(jornadaDiaria));
+      const fallback = defaultJornada(jornadaDiaria);
+      setJornadas(fallback);
+      setJornadasB(defaultJornadaSemanaB(fallback));
     } finally {
       setLoadingJornadas(false);
     }
@@ -257,7 +283,9 @@ export default function Funcionarios() {
   function openNew() {
     setForm({ ...EMPTY_FORM });
     setEditId(null);
-    setJornadas(defaultJornada("08:00"));
+    const initial = defaultJornada("08:00");
+    setJornadas(initial);
+    setJornadasB(defaultJornadaSemanaB(initial));
     setArquivos([]);
     setUploadError(null);
     setDrawerOpen(true);
@@ -287,6 +315,9 @@ export default function Funcionarios() {
       horario: f.horario ?? "",
       escolaridade: f.escolaridade ?? "",
       pis: f.pis ?? "",
+      escala_quinzenal: (f as Funcionario & { escala_quinzenal?: boolean }).escala_quinzenal ?? false,
+      quinzena_referencia:
+        (f as Funcionario & { quinzena_referencia?: string | null }).quinzena_referencia ?? "",
     });
     setEditId(f.id);
     setUploadError(null);
@@ -301,9 +332,18 @@ export default function Funcionarios() {
     );
   }
 
+  function updateJornadaB(diaSemana: number, field: keyof JornadaDia, value: string | boolean) {
+    setJornadasB((prev) =>
+      prev.map((j) => (j.dia_semana === diaSemana ? { ...j, [field]: value } : j))
+    );
+  }
+
   const jornadaDiariaCalculada = useMemo(
-    () => computeJornadaDiariaFromPadrao(jornadas),
-    [jornadas],
+    () =>
+      computeJornadaDiariaFromPadrao(
+        form.escala_quinzenal ? [...jornadas, ...jornadasB] : jornadas,
+      ),
+    [jornadas, jornadasB, form.escala_quinzenal],
   );
 
   useEffect(() => {
@@ -317,19 +357,30 @@ export default function Funcionarios() {
 
   async function saveJornadas(funcionarioId: number) {
     const base = baseUrl();
-    await fetch(`${base}/api/funcionarios/${funcionarioId}/jornadas`, {
-      method: "PUT",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(
-        jornadas.map((j) => ({
+    const semanaA = jornadas.map((j) => ({
+      dia_semana: j.dia_semana,
+      semana: 1,
+      empresa_id: empresa?.id ?? 1,
+      entrada_padrao: j.entrada_padrao || null,
+      saida_padrao: j.saida_padrao || null,
+      intervalo_padrao: j.intervalo_padrao || null,
+      is_folga: j.is_folga,
+    }));
+    const semanaB = form.escala_quinzenal
+      ? jornadasB.map((j) => ({
           dia_semana: j.dia_semana,
+          semana: 2,
           empresa_id: empresa?.id ?? 1,
           entrada_padrao: j.entrada_padrao || null,
           saida_padrao: j.saida_padrao || null,
           intervalo_padrao: j.intervalo_padrao || null,
           is_folga: j.is_folga,
         }))
-      ),
+      : [];
+    await fetch(`${base}/api/funcionarios/${funcionarioId}/jornadas`, {
+      method: "PUT",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify([...semanaA, ...semanaB]),
     });
   }
 
@@ -351,6 +402,7 @@ export default function Funcionarios() {
       "horario",
       "escolaridade",
       "pis",
+      "quinzena_referencia",
     ] as const;
     const bodyAny = body as unknown as Record<string, unknown>;
     for (const k of opt) {
@@ -360,6 +412,12 @@ export default function Funcionarios() {
   }
 
   async function handleSave() {
+    if (form.escala_quinzenal && !form.quinzena_referencia) {
+      alert(
+        "Escala quinzenal habilitada — selecione a 'Data de referência (Semana A)' antes de salvar.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       const formData = buildBody();
@@ -833,73 +891,194 @@ export default function Funcionarios() {
                 <h3 className="text-sm font-semibold text-[#1B2A4A] mb-3 border-b pb-1">
                   Jornada Padrão por Dia da Semana
                 </h3>
+
+                {/* Toggle: escala quinzenal */}
+                <div className="mb-3 p-3 bg-[#F0F5FF] border border-[#D6E4FA] rounded">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={!!form.escala_quinzenal}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setField("escala_quinzenal", checked);
+                        if (checked && !jornadasB.some((j) => j.entrada_padrao || j.saida_padrao || j.is_folga !== (j.dia_semana === 0 || j.dia_semana === 6))) {
+                          setJornadasB(defaultJornadaSemanaB(jornadas));
+                        }
+                      }}
+                      className="w-4 h-4 accent-[#4A90D9]"
+                    />
+                    <span className="text-sm font-medium text-[#1B2A4A]">
+                      Escala quinzenal (alternada de 15 em 15 dias)
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1 ml-6">
+                    Útil para "sábado sim, sábado não" — vale para qualquer dia da semana.
+                    Habilita uma segunda tabela (Semana B) que se alterna com a Semana A a cada 7 dias.
+                  </p>
+                  {form.escala_quinzenal && (
+                    <div className="mt-3 ml-6 flex items-center gap-2">
+                      <label className="text-xs font-medium text-gray-600">
+                        Data de referência (Semana A):
+                      </label>
+                      <input
+                        type="date"
+                        value={form.quinzena_referencia ?? ""}
+                        onChange={(e) => setField("quinzena_referencia", e.target.value)}
+                        className="border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#4A90D9]"
+                      />
+                      <span className="text-xs text-gray-500">
+                        (escolha uma data que cai numa semana "Semana A")
+                      </span>
+                    </div>
+                  )}
+                </div>
+
                 {loadingJornadas ? (
                   <p className="text-xs text-gray-400">Carregando jornada...</p>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="bg-gray-50">
-                          <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-20">Dia</th>
-                          <th className="px-2 py-1.5 text-center font-medium text-gray-600">Entrada</th>
-                          <th className="px-2 py-1.5 text-center font-medium text-gray-600">Saída</th>
-                          <th className="px-2 py-1.5 text-center font-medium text-gray-600">Intervalo</th>
-                          <th className="px-2 py-1.5 text-center font-medium text-gray-600">Folga</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {DIAS_SEMANA.map(({ num, label }) => {
-                          const j = jornadas.find((x) => x.dia_semana === num)!;
-                          return (
-                            <tr key={num} className={`border-b ${j.is_folga ? "bg-gray-50 opacity-60" : ""}`}>
-                              <td className="px-2 py-1.5 font-medium text-gray-700">{label}</td>
-                              <td className="px-2 py-1.5">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={j.entrada_padrao}
-                                  onChange={(e) => updateJornada(num, "entrada_padrao", maskHHMM(e.target.value, j.entrada_padrao))}
-                                  disabled={j.is_folga}
-                                  placeholder="08:00"
-                                  className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
-                                />
-                              </td>
-                              <td className="px-2 py-1.5">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={j.saida_padrao}
-                                  onChange={(e) => updateJornada(num, "saida_padrao", maskHHMM(e.target.value, j.saida_padrao))}
-                                  disabled={j.is_folga}
-                                  placeholder="17:00"
-                                  className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
-                                />
-                              </td>
-                              <td className="px-2 py-1.5">
-                                <input
-                                  type="text"
-                                  inputMode="numeric"
-                                  value={j.intervalo_padrao}
-                                  onChange={(e) => updateJornada(num, "intervalo_padrao", maskHHMM(e.target.value, j.intervalo_padrao))}
-                                  disabled={j.is_folga}
-                                  placeholder="01:00"
-                                  className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
-                                />
-                              </td>
-                              <td className="px-2 py-1.5 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={j.is_folga}
-                                  onChange={(e) => updateJornada(num, "is_folga", e.target.checked)}
-                                  className="w-4 h-4 accent-[#4A90D9]"
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+                  <>
+                    {form.escala_quinzenal && (
+                      <h4 className="text-xs font-semibold text-[#1B2A4A] mb-1.5 mt-2">
+                        Semana A
+                      </h4>
+                    )}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-20">Dia</th>
+                            <th className="px-2 py-1.5 text-center font-medium text-gray-600">Entrada</th>
+                            <th className="px-2 py-1.5 text-center font-medium text-gray-600">Saída</th>
+                            <th className="px-2 py-1.5 text-center font-medium text-gray-600">Intervalo</th>
+                            <th className="px-2 py-1.5 text-center font-medium text-gray-600">Folga</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {DIAS_SEMANA.map(({ num, label }) => {
+                            const j = jornadas.find((x) => x.dia_semana === num)!;
+                            return (
+                              <tr key={num} className={`border-b ${j.is_folga ? "bg-gray-50 opacity-60" : ""}`}>
+                                <td className="px-2 py-1.5 font-medium text-gray-700">{label}</td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={j.entrada_padrao}
+                                    onChange={(e) => updateJornada(num, "entrada_padrao", maskHHMM(e.target.value, j.entrada_padrao))}
+                                    disabled={j.is_folga}
+                                    placeholder="08:00"
+                                    className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={j.saida_padrao}
+                                    onChange={(e) => updateJornada(num, "saida_padrao", maskHHMM(e.target.value, j.saida_padrao))}
+                                    disabled={j.is_folga}
+                                    placeholder="17:00"
+                                    className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    inputMode="numeric"
+                                    value={j.intervalo_padrao}
+                                    onChange={(e) => updateJornada(num, "intervalo_padrao", maskHHMM(e.target.value, j.intervalo_padrao))}
+                                    disabled={j.is_folga}
+                                    placeholder="01:00"
+                                    className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={j.is_folga}
+                                    onChange={(e) => updateJornada(num, "is_folga", e.target.checked)}
+                                    className="w-4 h-4 accent-[#4A90D9]"
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {form.escala_quinzenal && (
+                      <>
+                        <h4 className="text-xs font-semibold text-[#1B2A4A] mb-1.5 mt-4">
+                          Semana B
+                        </h4>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="bg-gray-50">
+                                <th className="px-2 py-1.5 text-left font-medium text-gray-600 w-20">Dia</th>
+                                <th className="px-2 py-1.5 text-center font-medium text-gray-600">Entrada</th>
+                                <th className="px-2 py-1.5 text-center font-medium text-gray-600">Saída</th>
+                                <th className="px-2 py-1.5 text-center font-medium text-gray-600">Intervalo</th>
+                                <th className="px-2 py-1.5 text-center font-medium text-gray-600">Folga</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {DIAS_SEMANA.map(({ num, label }) => {
+                                const j = jornadasB.find((x) => x.dia_semana === num)!;
+                                return (
+                                  <tr key={num} className={`border-b ${j.is_folga ? "bg-gray-50 opacity-60" : ""}`}>
+                                    <td className="px-2 py-1.5 font-medium text-gray-700">{label}</td>
+                                    <td className="px-2 py-1.5">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={j.entrada_padrao}
+                                        onChange={(e) => updateJornadaB(num, "entrada_padrao", maskHHMM(e.target.value, j.entrada_padrao))}
+                                        disabled={j.is_folga}
+                                        placeholder="08:00"
+                                        className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={j.saida_padrao}
+                                        onChange={(e) => updateJornadaB(num, "saida_padrao", maskHHMM(e.target.value, j.saida_padrao))}
+                                        disabled={j.is_folga}
+                                        placeholder="17:00"
+                                        className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-1.5">
+                                      <input
+                                        type="text"
+                                        inputMode="numeric"
+                                        value={j.intervalo_padrao}
+                                        onChange={(e) => updateJornadaB(num, "intervalo_padrao", maskHHMM(e.target.value, j.intervalo_padrao))}
+                                        disabled={j.is_folga}
+                                        placeholder="01:00"
+                                        className="w-full border rounded px-2 py-1 font-mono text-center focus:outline-none focus:ring-1 focus:ring-[#4A90D9] disabled:bg-gray-100"
+                                      />
+                                    </td>
+                                    <td className="px-2 py-1.5 text-center">
+                                      <input
+                                        type="checkbox"
+                                        checked={j.is_folga}
+                                        onChange={(e) => updateJornadaB(num, "is_folga", e.target.checked)}
+                                        className="w-4 h-4 accent-[#4A90D9]"
+                                      />
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
               </section>
 

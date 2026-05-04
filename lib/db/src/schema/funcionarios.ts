@@ -31,6 +31,13 @@ export const funcionariosTable = pgTable("funcionarios", {
   horario: text("horario"),
   escolaridade: text("escolaridade"),
   pis: text("pis"),
+  // Escala Quinzenal ("sábado sim, sábado não" — vale para qualquer dia da semana).
+  // Quando true, o funcionário possui DUAS jornadas padrão (Semana A=1 e Semana B=2)
+  // e a semana de cada data é derivada de `quinzena_referencia`.
+  escala_quinzenal: boolean("escala_quinzenal").notNull().default(false),
+  // Data que marca o início da Semana A. Toda data cuja semana ISO seja
+  // múltiplo par de 7 dias após esta referência cai na Semana A; caso contrário, Semana B.
+  quinzena_referencia: date("quinzena_referencia"),
   criado_em: timestamp("criado_em").notNull().defaultNow(),
 }, (t) => [unique("funcionarios_empresa_codigo_unique").on(t.empresa_id, t.codigo)]);
 

@@ -490,6 +490,11 @@ components:
         pis:
           type: string
           nullable: true
+        escala_quinzenal:
+          type: boolean
+        quinzena_referencia:
+          type: string
+          nullable: true
         criado_em:
           type: string
       required:
@@ -503,6 +508,7 @@ components:
         - transporte
         - jornada_diaria
         - ativo
+        - escala_quinzenal
         - criado_em
 
     CreateFuncionarioBody:
@@ -568,6 +574,11 @@ components:
         pis:
           type: string
           nullable: true
+        escala_quinzenal:
+          type: boolean
+        quinzena_referencia:
+          type: string
+          nullable: true
       required:
         - codigo
         - nome
@@ -631,6 +642,11 @@ components:
           type: string
           nullable: true
         pis:
+          type: string
+          nullable: true
+        escala_quinzenal:
+          type: boolean
+        quinzena_referencia:
           type: string
           nullable: true
 

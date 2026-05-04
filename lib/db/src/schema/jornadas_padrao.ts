@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, boolean, smallint, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { funcionariosTable } from "./funcionarios";
@@ -13,11 +13,14 @@ export const jornadasPadraoTable = pgTable("jornadas_padrao", {
     .notNull()
     .references(() => empresasTable.id, { onDelete: "cascade" }),
   dia_semana: integer("dia_semana").notNull(),
+  // Semana 1 = Semana A (padrão), Semana 2 = Semana B (escala quinzenal).
+  // Funcionários sem escala quinzenal usam apenas semana=1.
+  semana: smallint("semana").notNull().default(1),
   entrada_padrao: text("entrada_padrao"),
   saida_padrao: text("saida_padrao"),
   intervalo_padrao: text("intervalo_padrao"),
   is_folga: boolean("is_folga").notNull().default(false),
-}, (t) => [unique("jornadas_padrao_func_dia_unique").on(t.funcionario_id, t.dia_semana)]);
+}, (t) => [unique("jornadas_padrao_func_dia_semana_unique").on(t.funcionario_id, t.dia_semana, t.semana)]);
 
 export const insertJornadaPadraoSchema = createInsertSchema(jornadasPadraoTable).omit({
   id: true,

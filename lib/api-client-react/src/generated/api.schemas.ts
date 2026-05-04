@@ -41,6 +41,8 @@ export interface Funcionario {
   horario?: string | null;
   escolaridade?: string | null;
   pis?: string | null;
+  escala_quinzenal: boolean;
+  quinzena_referencia?: string | null;
   criado_em: string;
 }
 
@@ -87,6 +89,8 @@ export interface CreateFuncionarioBody {
   horario?: string | null;
   escolaridade?: string | null;
   pis?: string | null;
+  escala_quinzenal?: boolean;
+  quinzena_referencia?: string | null;
 }
 
 export interface UpdateFuncionarioBody {
@@ -112,6 +116,8 @@ export interface UpdateFuncionarioBody {
   horario?: string | null;
   escolaridade?: string | null;
   pis?: string | null;
+  escala_quinzenal?: boolean;
+  quinzena_referencia?: string | null;
 }
 
 export interface FuncionarioArquivo {
