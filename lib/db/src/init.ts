@@ -160,6 +160,31 @@ CREATE TABLE IF NOT EXISTS funcionario_arquivos (
 );
 
 CREATE INDEX IF NOT EXISTS idx_funcionario_arquivos_func ON funcionario_arquivos (funcionario_id);
+
+-- Escala Quinzenal (Semana A / Semana B)
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS escala_quinzenal BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS quinzena_referencia DATE;
+
+ALTER TABLE jornadas_padrao ADD COLUMN IF NOT EXISTS semana SMALLINT NOT NULL DEFAULT 1;
+
+-- Substitui o UNIQUE antigo (funcionario_id, dia_semana) pelo novo que inclui semana.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'jornadas_padrao_funcionario_id_dia_semana_key'
+  ) THEN
+    ALTER TABLE jornadas_padrao DROP CONSTRAINT jornadas_padrao_funcionario_id_dia_semana_key;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'jornadas_padrao_funcionario_id_dia_semana_semana_key'
+  ) THEN
+    ALTER TABLE jornadas_padrao
+      ADD CONSTRAINT jornadas_padrao_funcionario_id_dia_semana_semana_key
+      UNIQUE (funcionario_id, dia_semana, semana);
+  END IF;
+END $$;
 `;
 
 export async function runDbInit(): Promise<void> {
