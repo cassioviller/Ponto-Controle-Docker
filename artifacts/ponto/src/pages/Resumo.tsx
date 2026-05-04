@@ -140,7 +140,8 @@ export default function Resumo() {
                 <th className="px-3 py-2.5 text-left font-semibold">Cargo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Situação</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Adianto. (R$)</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Transp.</th>
+                <th className="px-3 py-2.5 text-center font-semibold" title="Vale Transporte">V.T.</th>
+                <th className="px-3 py-2.5 text-center font-semibold" title="Vale Alimentação">V.A.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Dia</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Faltas Hrs</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Hrs Just.</th>
@@ -153,14 +154,14 @@ export default function Resumo() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={14} className="text-center py-12 text-gray-400">
+                  <td colSpan={15} className="text-center py-12 text-gray-400">
                     Carregando...
                   </td>
                 </tr>
               )}
               {!isLoading && (!rows || rows.length === 0) && (
                 <tr>
-                  <td colSpan={14} className="text-center py-12 text-gray-400">
+                  <td colSpan={15} className="text-center py-12 text-gray-400">
                     Nenhum funcionário encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -203,6 +204,13 @@ export default function Resumo() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     {r.transporte ? (
+                      <span className="text-green-600 font-bold">S</span>
+                    ) : (
+                      <span className="text-gray-300">N</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {(r as typeof r & { vale_alimentacao?: boolean }).vale_alimentacao ? (
                       <span className="text-green-600 font-bold">S</span>
                     ) : (
                       <span className="text-gray-300">N</span>

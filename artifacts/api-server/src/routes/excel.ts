@@ -131,7 +131,8 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
       { header: "Situação", key: "situacao", width: 14 },
       { header: "Jornada Diária", key: "jornada_diaria", width: 16 },
       { header: "Adiantamento", key: "adiantamento", width: 14 },
-      { header: "Transporte", key: "transporte", width: 14 },
+      { header: "Vale Transporte", key: "transporte", width: 16 },
+      { header: "Vale Alimentação", key: "vale_alimentacao", width: 18 },
     ];
     const funcHeader = funcWs.getRow(1);
     funcHeader.eachCell((cell) => { Object.assign(cell, { style: HEADER_STYLE }); });
@@ -146,6 +147,7 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
         jornada_diaria: hhmmStrToExcelNumber(f.jornada_diaria),
         adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
         transporte: f.transporte ? "Sim" : "Não",
+        vale_alimentacao: f.vale_alimentacao ? "Sim" : "Não",
       });
     });
     funcWs.getColumn("adiantamento").numFmt = '"R$" #,##0.00';

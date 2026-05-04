@@ -26,6 +26,7 @@ export interface Funcionario {
   situacao: string;
   adiantamento: number;
   transporte: boolean;
+  vale_alimentacao?: boolean;
   jornada_diaria: string;
   ativo: boolean;
   empresa?: string | null;
@@ -74,6 +75,7 @@ export interface CreateFuncionarioBody {
   situacao?: CreateFuncionarioBodySituacao;
   adiantamento?: number;
   transporte?: boolean;
+  vale_alimentacao?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
   empresa?: string | null;
@@ -101,6 +103,7 @@ export interface UpdateFuncionarioBody {
   situacao?: string;
   adiantamento?: number;
   transporte?: boolean;
+  vale_alimentacao?: boolean;
   jornada_diaria?: string;
   ativo?: boolean;
   empresa?: string | null;
@@ -282,6 +285,7 @@ export interface ResumoFuncionario {
   situacao: string;
   adiantamento: number;
   transporte: boolean;
+  vale_alimentacao?: boolean;
   jornada_diaria: string;
   faltas_dia: number;
   faltas_horas: string;

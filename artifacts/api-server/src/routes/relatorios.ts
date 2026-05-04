@@ -216,6 +216,7 @@ router.get("/resumo", async (req, res) => {
         situacao: f.situacao,
         adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
         transporte: f.transporte,
+        vale_alimentacao: f.vale_alimentacao,
         jornada_diaria: f.jornada_diaria,
         faltas_dia: faltasDia,
         faltas_horas: minutesToTime(faltasHorasMin),

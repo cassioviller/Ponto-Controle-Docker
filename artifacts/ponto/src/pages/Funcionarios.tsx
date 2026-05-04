@@ -161,6 +161,7 @@ const EMPTY_FORM: FormState = {
   situacao: "Ativo" as CreateFuncionarioBodySituacao,
   adiantamento: 0,
   transporte: false,
+  vale_alimentacao: false,
   jornada_diaria: "08:00",
   ativo: true,
   empresa: "",
@@ -300,6 +301,7 @@ export default function Funcionarios() {
       situacao: f.situacao as CreateFuncionarioBodySituacao,
       adiantamento: f.adiantamento ?? 0,
       transporte: f.transporte,
+      vale_alimentacao: (f as Funcionario & { vale_alimentacao?: boolean }).vale_alimentacao ?? false,
       jornada_diaria: f.jornada_diaria,
       ativo: f.ativo,
       empresa: f.empresa ?? "",
@@ -536,7 +538,8 @@ export default function Funcionarios() {
                 <th className="px-3 py-2.5 text-left font-semibold">Vínculo</th>
                 <th className="px-3 py-2.5 text-left font-semibold">Situação</th>
                 <th className="px-3 py-2.5 text-right font-semibold">Adianto. (R$)</th>
-                <th className="px-3 py-2.5 text-center font-semibold">Transp.</th>
+                <th className="px-3 py-2.5 text-center font-semibold" title="Vale Transporte">V.T.</th>
+                <th className="px-3 py-2.5 text-center font-semibold" title="Vale Alimentação">V.A.</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Jornada</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ativo</th>
                 <th className="px-3 py-2.5 text-center font-semibold">Ações</th>
@@ -545,12 +548,12 @@ export default function Funcionarios() {
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">Carregando...</td>
+                  <td colSpan={11} className="text-center py-12 text-gray-400">Carregando...</td>
                 </tr>
               )}
               {!isLoading && funcionarios.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="text-center py-12 text-gray-400">
+                  <td colSpan={11} className="text-center py-12 text-gray-400">
                     Nenhum funcionário cadastrado. Clique em "Novo Funcionário" para adicionar.
                   </td>
                 </tr>
@@ -580,6 +583,11 @@ export default function Funcionarios() {
                   </td>
                   <td className="px-3 py-2 text-center">
                     {f.transporte ? <span className="text-green-600 font-bold">S</span> : <span className="text-gray-300">N</span>}
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {(f as Funcionario & { vale_alimentacao?: boolean }).vale_alimentacao
+                      ? <span className="text-green-600 font-bold">S</span>
+                      : <span className="text-gray-300">N</span>}
                   </td>
                   <td className="px-3 py-2 text-center font-mono text-xs">{f.jornada_diaria}</td>
                   <td className="px-3 py-2 text-center">
@@ -746,7 +754,17 @@ export default function Funcionarios() {
                       onChange={(e) => setField("transporte", e.target.checked)}
                       className="w-4 h-4 accent-[#4A90D9]"
                     />
-                    <label htmlFor="transporte" className="text-sm text-gray-700">Transporte</label>
+                    <label htmlFor="transporte" className="text-sm text-gray-700">Vale Transporte</label>
+                  </div>
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      type="checkbox"
+                      id="vale_alimentacao"
+                      checked={form.vale_alimentacao ?? false}
+                      onChange={(e) => setField("vale_alimentacao", e.target.checked)}
+                      className="w-4 h-4 accent-[#4A90D9]"
+                    />
+                    <label htmlFor="vale_alimentacao" className="text-sm text-gray-700">Vale Alimentação</label>
                   </div>
                   <div className="flex items-center gap-2 pb-2">
                     <input

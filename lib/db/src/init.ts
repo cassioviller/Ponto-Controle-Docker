@@ -161,6 +161,9 @@ CREATE TABLE IF NOT EXISTS funcionario_arquivos (
 
 CREATE INDEX IF NOT EXISTS idx_funcionario_arquivos_func ON funcionario_arquivos (funcionario_id);
 
+-- Vale Alimentação (espelha o booleano de Vale Transporte).
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS vale_alimentacao BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Escala Quinzenal (Semana A / Semana B)
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS escala_quinzenal BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS quinzena_referencia DATE;
