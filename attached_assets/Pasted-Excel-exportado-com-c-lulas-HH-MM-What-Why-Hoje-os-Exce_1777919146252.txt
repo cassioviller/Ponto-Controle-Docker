@@ -1,0 +1,36 @@
+Excel exportado com células HH:MM
+What & Why
+Hoje os Excels exportados pelo sistema (modelo de importação e Folha Individual) trazem as colunas de horário sem formatação especial. O usuário precisa digitar 08:00 manualmente, com os dois pontos. A ideia é configurar essas células para que, ao digitar apenas os números (ex: 0800), o Excel mostre automaticamente 08:00, sem o usuário precisar digitar o :.
+
+Isso vale tanto pro modelo de importação (planilha em branco baixada na tela Resumo) quanto pra Folha Individual exportada por funcionário.
+
+Done looks like
+No Excel modelo de importação (/exportar/modelo, aba "Registros de Ponto"), as colunas de horário (Entrada, Saída Almoço, Volta Almoço, Saída) vêm com formato customizado que faz 0800 aparecer como 08:00 automaticamente. O usuário pode digitar só os 4 dígitos e o : aparece sozinho.
+Na aba "Funcionários" do mesmo modelo, a coluna Jornada Diária também recebe o mesmo formato (digitar 0800 vira 08:00).
+No Excel da Folha Individual (/exportar/folha/:id), as colunas de horário (Entrada, Saída, Saída Almoço, Volta Almoço, Intervalo, Total Horas, HE 60%, HE 100%, Atrasos) também ficam com o mesmo formato visual HH:MM.
+Importar de volta a planilha continua funcionando normalmente, tanto se o usuário digitou só os números (0800) quanto se digitou com : (08:00) — a normalização já existente cuida disso.
+Os dias com tipo "Feriado" / "Falta" / "Falta Justificada" continuam podendo ficar com células em branco sem dar erro.
+Out of scope
+Não vamos mexer no comportamento de digitação automática do : na interface web (isso já foi feito na tarefa #4).
+Não vamos mudar o layout de colunas dos Excels nem adicionar/remover colunas.
+Não vamos mudar a lógica de cálculo de horas extras / atrasos / total de horas.
+Steps
+Modelo de importação — colunas de horário. Aplicar o formato numérico customizado 00":"00 (que faz 0800 aparecer como 08:00 no Excel) nas colunas Entrada, Saída Almoço, Volta Almoço e Saída da aba "Registros de Ponto" do export /exportar/modelo. Aplicar o formato em todas as linhas de dados pré-criadas, não só no cabeçalho.
+
+Modelo de importação — Jornada Diária. Aplicar o mesmo formato 00":"00 na coluna "Jornada Diária" da aba "Funcionários" do mesmo export.
+
+Folha Individual. Aplicar o mesmo formato 00":"00 nas colunas de horário da Folha Individual exportada (/exportar/folha/:id): Entrada, Saída, Saída Almoço, Volta Almoço, Intervalo, Total Horas, HE 60%, HE 100% e Atrasos. Como hoje os valores são gravados como strings "HH:MM", ajustar a gravação dessas células para escrever o número (ex: 800 em vez de "08:00") quando houver valor, deixando em branco quando não houver — assim o formato customizado funciona corretamente. Manter o comportamento de cores por tipo de dia / sábado / domingo.
+
+Atualizar texto das instruções. Na aba "Instruções" do modelo, ajustar a frase sobre horários para deixar claro que basta digitar os números (ex: 0800) que o : aparece sozinho.
+
+Verificar importação. Abrir o modelo no Excel, digitar valores como 0800, 1230, 1330, 1730 nas colunas de horário, salvar e importar. Confirmar que a importação reconhece esses valores corretamente (a função normalizeHHMM já trata strings sem :, mas vale conferir se o valor vem como número do ExcelJS — se vier, garantir que String(v) seja convertido antes de normalizeHHMM, sem casas decimais espúrias).
+
+Relevant files
+artifacts/api-server/src/routes/excel.ts:91-237
+artifacts/api-server/src/routes/excel.ts:239-381
+artifacts/api-server/src/routes/excel.ts:481-577
+artifacts/api-server/src/lib/timeUtils.ts:18-35
+artifacts/ponto/src/pages/Resumo.tsx:50-55
+artifacts/ponto/src/pages/FolhaIndividual.tsx:665-675
+Dependencies
+Aceitar valores hh:mm sem ':' também na coluna Jornada Diária da aba Funcionários do Excel

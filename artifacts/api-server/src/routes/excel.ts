@@ -88,6 +88,24 @@ function isValidHHMM(val: string | null): boolean {
   return minutes >= 0 && minutes <= 59;
 }
 
+// Formato customizado do Excel que faz um número como 800 ser exibido
+// como "08:00" e 1730 como "17:30". O usuário digita só os 4 números
+// e o ':' aparece automaticamente.
+const HHMM_NUMFMT = '00":"00';
+
+// Converte uma string "HH:MM" no número compacto que o formato HHMM_NUMFMT
+// renderiza como HH:MM (ex.: "08:00" -> 800, "17:30" -> 1730). Devolve
+// null para entradas vazias / inválidas (o ExcelJS deixa a célula em branco).
+function hhmmStrToExcelNumber(hhmm: string | null | undefined): number | null {
+  if (!hhmm) return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm).trim());
+  if (!m) return null;
+  const h = parseInt(m[1] ?? "0", 10);
+  const mn = parseInt(m[2] ?? "0", 10);
+  if (isNaN(h) || isNaN(mn)) return null;
+  return h * 100 + mn;
+}
+
 router.get("/exportar/modelo", async (req: Request, res: Response) => {
   try {
     const wb = new ExcelJS.Workbook();
@@ -124,12 +142,13 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
         cargo: f.cargo,
         vinculo: f.vinculo,
         situacao: f.situacao,
-        jornada_diaria: f.jornada_diaria,
+        jornada_diaria: hhmmStrToExcelNumber(f.jornada_diaria),
         adiantamento: parseFloat(f.adiantamento ?? "0") || 0,
         transporte: f.transporte ? "Sim" : "Não",
       });
     });
     funcWs.getColumn("adiantamento").numFmt = '"R$" #,##0.00';
+    funcWs.getColumn("jornada_diaria").numFmt = HHMM_NUMFMT;
 
     const ws = wb.addWorksheet("Registros de Ponto");
 
@@ -161,13 +180,16 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
         data: isoToBrDate(data),
         dia_semana: getDiaSemana(data),
         tipo_dia: TIPO_LABEL.normal,
-        entrada: "",
-        saida_almoco: "",
-        volta_almoco: "",
-        saida: "",
+        entrada: null,
+        saida_almoco: null,
+        volta_almoco: null,
+        saida: null,
         observacoes: "",
       });
     });
+    for (const colKey of ["entrada", "saida_almoco", "volta_almoco", "saida"]) {
+      ws.getColumn(colKey).numFmt = HHMM_NUMFMT;
+    }
 
     // Validação (dropdown) na coluna Tipo do Dia (col C, linhas 2..N+1)
     const tipoLabels = TIPOS_DIA.map((t) => TIPO_LABEL[t]);
@@ -192,7 +214,7 @@ router.get("/exportar/modelo", async (req: Request, res: Response) => {
       "",
       "1. Data: Use o formato brasileiro DD/MM/AAAA (ex: 01/04/2026). O formato YYYY-MM-DD também é aceito.",
       "2. Tipo do Dia: ESCOLHA da lista suspensa (Normal, Feriado, Feriado Trabalhado, Falta, Falta Justificada, Atraso Justificado).",
-      "3. Entrada / Saída Almoço / Volta Almoço / Saída: Use HH:MM (ex: 08:00, 12:00, 13:00, 17:30). O ':' é opcional — você pode digitar apenas os números (ex: 0800 vira 08:00, 800 vira 08:00, 1730 vira 17:30).",
+      "3. Entrada / Saída Almoço / Volta Almoço / Saída: BASTA DIGITAR OS NÚMEROS (ex: 0800, 1230, 1330, 1730) — as células estão formatadas para mostrar HH:MM automaticamente, o ':' aparece sozinho. Você também pode digitar com ':' (ex: 08:00) se preferir, mas não é necessário. O mesmo vale para a coluna 'Jornada Diária' da aba Funcionários.",
       "4. Observações: Campo livre para texto.",
       "",
       "REGRAS POR TIPO:",
@@ -313,6 +335,20 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
     headerRow.eachCell((cell) => Object.assign(cell, { style: HEADER_STYLE }));
     headerRow.height = 22;
 
+    for (const colKey of [
+      "entrada",
+      "saida",
+      "saida_almoco",
+      "volta_almoco",
+      "intervalo",
+      "total_horas",
+      "he_60",
+      "he_100",
+      "atrasos",
+    ]) {
+      ws.getColumn(colKey).numFmt = HHMM_NUMFMT;
+    }
+
     days.forEach((data) => {
       const reg = registroMap.get(data);
       const dt = new Date(data + "T00:00:00");
@@ -324,15 +360,15 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
         data: isoToBrDate(data),
         dia_semana: getDiaSemana(data),
         tipo_dia: TIPO_LABEL[tipo],
-        entrada: reg?.entrada ?? "",
-        saida: reg?.saida ?? "",
-        saida_almoco: reg?.saida_almoco ?? "",
-        volta_almoco: reg?.volta_almoco ?? "",
-        intervalo: reg?.intervalo ?? "",
-        total_horas: reg?.total_horas ?? "",
-        he_60: reg?.he_60 ?? "",
-        he_100: reg?.he_100 ?? "",
-        atrasos: reg?.atrasos ?? "",
+        entrada: hhmmStrToExcelNumber(reg?.entrada),
+        saida: hhmmStrToExcelNumber(reg?.saida),
+        saida_almoco: hhmmStrToExcelNumber(reg?.saida_almoco),
+        volta_almoco: hhmmStrToExcelNumber(reg?.volta_almoco),
+        intervalo: hhmmStrToExcelNumber(reg?.intervalo),
+        total_horas: hhmmStrToExcelNumber(reg?.total_horas),
+        he_60: hhmmStrToExcelNumber(reg?.he_60),
+        he_100: hhmmStrToExcelNumber(reg?.he_100),
+        atrasos: hhmmStrToExcelNumber(reg?.atrasos),
         observacoes: reg?.observacoes ?? "",
       });
 
@@ -504,11 +540,36 @@ router.post("/importar", async (req: Request, res: Response) => {
         return s || null;
       };
 
-      const entrada = normalizeHHMM(getCellStr(COL.entrada));
-      const saida = normalizeHHMM(getCellStr(COL.saida));
-      const saidaAlmoco = normalizeHHMM(getCellStr(COL.saidaAlmoco));
-      const voltaAlmoco = normalizeHHMM(getCellStr(COL.voltaAlmoco));
-      const intervaloRaw = normalizeHHMM(getCellStr(COL.intervalo));
+      // Para colunas de horário: trata também valores numéricos vindos
+      // do formato customizado 00":"00 (ex.: 800 -> "800") e Excel time
+      // como fração-de-dia (0..1, ex.: 08:00 = 0.3333).
+      const cellToTimeStr = (col: number | null): string | null => {
+        if (col === null) return null;
+        const v = row.getCell(col).value;
+        if (v === null || v === undefined) return null;
+        if (typeof v === "number") {
+          if (v > 0 && v < 1) {
+            const totalMin = Math.round(v * 24 * 60);
+            const h = Math.floor(totalMin / 60);
+            const m = totalMin % 60;
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+          }
+          return String(Math.round(v));
+        }
+        if (v instanceof Date) {
+          const h = v.getUTCHours();
+          const m = v.getUTCMinutes();
+          return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+        }
+        const s = String(v).trim();
+        return s || null;
+      };
+
+      const entrada = normalizeHHMM(cellToTimeStr(COL.entrada));
+      const saida = normalizeHHMM(cellToTimeStr(COL.saida));
+      const saidaAlmoco = normalizeHHMM(cellToTimeStr(COL.saidaAlmoco));
+      const voltaAlmoco = normalizeHHMM(cellToTimeStr(COL.voltaAlmoco));
+      const intervaloRaw = normalizeHHMM(cellToTimeStr(COL.intervalo));
       const observacoes = getCellStr(COL.obs);
 
       // Resolver tipo_dia
