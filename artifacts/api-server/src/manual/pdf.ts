@@ -35,6 +35,7 @@ const COLORS = {
   badgeAdmin: "#1B66CC",
   badgeFunc: "#1B7A3E",
   badgeBoth: "#7C5BB6",
+  badgeSuper: "#B8470A",
 };
 
 const PAGE = {
@@ -57,6 +58,7 @@ interface RenderContext {
 function profileBadgeColor(profile: ManualSection["profile"]): string {
   if (profile === "Admin") return COLORS.badgeAdmin;
   if (profile === "Funcionário") return COLORS.badgeFunc;
+  if (profile === "Super Admin") return COLORS.badgeSuper;
   return COLORS.badgeBoth;
 }
 

@@ -16,7 +16,7 @@ export type ManualBlock =
 
 export interface ManualSection {
   title: string;
-  profile: "Admin" | "Funcionário" | "Ambos";
+  profile: "Admin" | "Funcionário" | "Ambos" | "Super Admin";
   body: ManualBlock[];
 }
 
@@ -326,7 +326,7 @@ export const MANUAL_SECTIONS: ManualSection[] = [
   },
   {
     title: "Super Admin",
-    profile: "Admin",
+    profile: "Super Admin",
     body: [
       {
         kind: "p",
