@@ -418,10 +418,22 @@ export default function FolhaIndividual() {
         const nextSaidaAlmoco = key === "saida_almoco" ? (value || null) : (prev.saida_almoco ?? null);
         const nextVoltaAlmoco = key === "volta_almoco" ? (value || null) : (prev.volta_almoco ?? null);
         const intervaloDerivado = deriveIntervalo(nextSaidaAlmoco, nextVoltaAlmoco);
-        // Quando ambas as pontas do almoço estão vazias, o usuário pode digitar
-        // o intervalo manualmente (incluindo "00:00" para indicar sem intervalo).
-        const nextIntervalo = intervaloDerivado
-          ?? (key === "intervalo" ? (value || null) : (prev.intervalo ?? null));
+        // Quando ambas as pontas do almoço estão vazias, o intervalo é editável
+        // manualmente. Limpar o campo (=> override "sem intervalo") vira "00:00",
+        // garantindo que o backend não caia no fallback do `jornada_padrao`.
+        const intervaloEditavelAgora = !nextSaidaAlmoco && !nextVoltaAlmoco;
+        let nextIntervalo: string | null;
+        if (intervaloDerivado) {
+          nextIntervalo = intervaloDerivado;
+        } else if (key === "intervalo") {
+          nextIntervalo = value || (intervaloEditavelAgora ? "00:00" : null);
+        } else if (intervaloEditavelAgora) {
+          // Tornou-se editável agora (saida_almoco/volta_almoco zerados): mantém
+          // o intervalo anterior; se era null, força "00:00" para sobrescrever.
+          nextIntervalo = prev.intervalo ?? "00:00";
+        } else {
+          nextIntervalo = prev.intervalo ?? null;
+        }
         const tipo = (prev.tipo_dia as TipoDia | undefined) ?? "normal";
 
         const calc = calcByTipo(

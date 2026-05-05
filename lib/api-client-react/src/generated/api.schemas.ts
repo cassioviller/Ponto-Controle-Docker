@@ -126,6 +126,17 @@ export interface UpdateFuncionarioBody {
   he_100_acima_2h?: boolean;
 }
 
+/**
+ * Funcionário atualizado. Quando o toggle `he_100_acima_2h` é alterado,
+`registros_recalculados` indica quantos registros com `tipo_dia='normal'`
+foram recalculados pelo backfill transacional disparado pela mudança.
+
+ */
+export type UpdateFuncionarioResponse = Funcionario & {
+  /** @minimum 0 */
+  registros_recalculados?: number;
+};
+
 export interface FuncionarioArquivo {
   id: number;
   funcionario_id: number;

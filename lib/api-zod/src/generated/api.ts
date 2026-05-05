@@ -163,36 +163,50 @@ export const UpdateFuncionarioBody = zod.object({
   he_100_acima_2h: zod.boolean().optional(),
 });
 
-export const UpdateFuncionarioResponse = zod.object({
-  id: zod.number(),
-  codigo: zod.number(),
-  nome: zod.string(),
-  cargo: zod.string(),
-  vinculo: zod.string(),
-  situacao: zod.string(),
-  adiantamento: zod.number(),
-  transporte: zod.boolean(),
-  vale_alimentacao: zod.boolean().optional(),
-  jornada_diaria: zod.string(),
-  ativo: zod.boolean(),
-  empresa: zod.string().nullish(),
-  data_contrato: zod.string().nullish(),
-  salario: zod.string().nullish(),
-  endereco: zod.string().nullish(),
-  numero: zod.string().nullish(),
-  bairro: zod.string().nullish(),
-  cidade: zod.string().nullish(),
-  cep: zod.string().nullish(),
-  estado_civil: zod.string().nullish(),
-  raca_cor: zod.string().nullish(),
-  horario: zod.string().nullish(),
-  escolaridade: zod.string().nullish(),
-  pis: zod.string().nullish(),
-  escala_quinzenal: zod.boolean(),
-  quinzena_referencia: zod.string().nullish(),
-  he_100_acima_2h: zod.boolean(),
-  criado_em: zod.string(),
-});
+export const updateFuncionarioResponseTwoRegistrosRecalculadosMin = 0;
+
+export const UpdateFuncionarioResponse = zod
+  .object({
+    id: zod.number(),
+    codigo: zod.number(),
+    nome: zod.string(),
+    cargo: zod.string(),
+    vinculo: zod.string(),
+    situacao: zod.string(),
+    adiantamento: zod.number(),
+    transporte: zod.boolean(),
+    vale_alimentacao: zod.boolean().optional(),
+    jornada_diaria: zod.string(),
+    ativo: zod.boolean(),
+    empresa: zod.string().nullish(),
+    data_contrato: zod.string().nullish(),
+    salario: zod.string().nullish(),
+    endereco: zod.string().nullish(),
+    numero: zod.string().nullish(),
+    bairro: zod.string().nullish(),
+    cidade: zod.string().nullish(),
+    cep: zod.string().nullish(),
+    estado_civil: zod.string().nullish(),
+    raca_cor: zod.string().nullish(),
+    horario: zod.string().nullish(),
+    escolaridade: zod.string().nullish(),
+    pis: zod.string().nullish(),
+    escala_quinzenal: zod.boolean(),
+    quinzena_referencia: zod.string().nullish(),
+    he_100_acima_2h: zod.boolean(),
+    criado_em: zod.string(),
+  })
+  .and(
+    zod.object({
+      registros_recalculados: zod
+        .number()
+        .min(updateFuncionarioResponseTwoRegistrosRecalculadosMin)
+        .optional(),
+    }),
+  )
+  .describe(
+    "Funcionário atualizado. Quando o toggle `he_100_acima_2h` é alterado,\n`registros_recalculados` indica quantos registros com `tipo_dia='normal'`\nforam recalculados pelo backfill transacional disparado pela mudança.\n",
+  );
 
 /**
  * @summary Remover funcionário

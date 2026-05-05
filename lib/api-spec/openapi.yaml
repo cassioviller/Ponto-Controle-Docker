@@ -124,7 +124,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Funcionario"
+                $ref: "#/components/schemas/UpdateFuncionarioResponse"
     delete:
       operationId: deleteFuncionario
       tags: [funcionarios]
@@ -662,6 +662,19 @@ components:
           nullable: true
         he_100_acima_2h:
           type: boolean
+
+    UpdateFuncionarioResponse:
+      description: |
+        Funcionário atualizado. Quando o toggle `he_100_acima_2h` é alterado,
+        `registros_recalculados` indica quantos registros com `tipo_dia='normal'`
+        foram recalculados pelo backfill transacional disparado pela mudança.
+      allOf:
+        - $ref: "#/components/schemas/Funcionario"
+        - type: object
+          properties:
+            registros_recalculados:
+              type: integer
+              minimum: 0
 
     FuncionarioArquivo:
       type: object

@@ -435,8 +435,7 @@ export default function Funcionarios() {
           data: formData as UpdateFuncionarioBody,
         });
         funcionarioId = editId;
-        const recalc = (updated as Funcionario & { registros_recalculados?: number })
-          .registros_recalculados;
+        const recalc = updated.registros_recalculados;
         if (typeof recalc === "number" && recalc > 0) {
           toast({
             title: "Registros recalculados",

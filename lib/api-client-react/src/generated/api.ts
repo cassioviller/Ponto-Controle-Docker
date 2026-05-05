@@ -37,6 +37,7 @@ import type {
   RegistroPonto,
   ResumoFuncionario,
   UpdateFuncionarioBody,
+  UpdateFuncionarioResponse,
   UploadFuncionarioArquivoBody,
   UpsertRegistroBody,
 } from "./api.schemas";
@@ -403,8 +404,8 @@ export const updateFuncionario = async (
   id: number,
   updateFuncionarioBody: UpdateFuncionarioBody,
   options?: RequestInit,
-): Promise<Funcionario> => {
-  return customFetch<Funcionario>(getUpdateFuncionarioUrl(id), {
+): Promise<UpdateFuncionarioResponse> => {
+  return customFetch<UpdateFuncionarioResponse>(getUpdateFuncionarioUrl(id), {
     ...options,
     method: "PUT",
     headers: { "Content-Type": "application/json", ...options?.headers },
