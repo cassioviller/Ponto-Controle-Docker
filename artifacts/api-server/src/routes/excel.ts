@@ -465,54 +465,93 @@ router.post("/importar", async (req: Request, res: Response) => {
       : [];
     const feriadoSet = new Set<string>(feriadoRows.map((f) => String(f.data)));
 
-    // Detectar layout: novo (8 cols com Tipo do Dia em C) vs antigo (12 cols com Faltas em K).
-    const headerRow = ws.getRow(1);
-    const headerC = String(headerRow.getCell(3).value ?? "").trim().toLowerCase();
-    const isNewLayout = headerC.includes("tipo");
-
     type ColMap = {
       tipo: number | null;
-      entrada: number;
+      entrada: number | null;
       saidaAlmoco: number | null;
       voltaAlmoco: number | null;
-      saida: number;
+      saida: number | null;
       intervalo: number | null;
       he60: number | null;
       he100: number | null;
       atrasos: number | null;
       faltas: number | null;
-      obs: number;
+      obs: number | null;
     };
 
-    const COL: ColMap = isNewLayout
-      ? {
-          tipo: 3,
-          entrada: 4,
-          saidaAlmoco: 5,
-          voltaAlmoco: 6,
-          saida: 7,
-          intervalo: null,
-          he60: null,
-          he100: null,
-          atrasos: null,
-          faltas: null,
-          obs: 8,
+    // Detectar a linha de cabeçalho real: a Folha Individual tem título/metadados nas
+    // primeiras linhas, então o cabeçalho não está fixo na linha 1.
+    const SCAN_ROWS = Math.min(10, ws.rowCount);
+    let headerRowNum: number | null = null;
+    for (let r = 1; r <= SCAN_ROWS; r++) {
+      const row = ws.getRow(r);
+      const firstCell = String(row.getCell(1).value ?? "").trim().toLowerCase();
+      if (!firstCell.startsWith("data")) continue;
+      let hasEntradaOrTipo = false;
+      for (let c = 2; c <= row.cellCount; c++) {
+        const txt = String(row.getCell(c).value ?? "").trim().toLowerCase();
+        if (txt.includes("entrada") || txt.includes("tipo")) {
+          hasEntradaOrTipo = true;
+          break;
         }
-      : {
-          tipo: null,
-          entrada: 3,
-          saida: 4,
-          saidaAlmoco: 5,
-          voltaAlmoco: 6,
-          intervalo: 7,
-          he60: 8,
-          he100: 9,
-          atrasos: 10,
-          faltas: 11,
-          obs: 12,
-        };
+      }
+      if (hasEntradaOrTipo) {
+        headerRowNum = r;
+        break;
+      }
+    }
 
-    const rows = ws.getRows(2, ws.rowCount - 1) ?? [];
+    if (headerRowNum === null) {
+      res.status(400).json({
+        error:
+          "Cabeçalho não encontrado. Use o arquivo gerado pelo modelo ou pela exportação da folha individual.",
+      });
+      return;
+    }
+
+    // Mapear colunas pelo nome do cabeçalho (em vez de posição fixa) para
+    // suportar layouts diferentes (modelo novo, modelo antigo, folha individual).
+    const headerRow = ws.getRow(headerRowNum);
+    const COL: ColMap = {
+      tipo: null,
+      entrada: null,
+      saidaAlmoco: null,
+      voltaAlmoco: null,
+      saida: null,
+      intervalo: null,
+      he60: null,
+      he100: null,
+      atrasos: null,
+      faltas: null,
+      obs: null,
+    };
+    for (let c = 1; c <= headerRow.cellCount; c++) {
+      const txt = String(headerRow.getCell(c).value ?? "").trim().toLowerCase();
+      if (!txt) continue;
+      if (txt.includes("tipo") && txt.includes("dia")) COL.tipo = c;
+      else if (txt.startsWith("entrada")) COL.entrada = c;
+      else if (txt.startsWith("saída almoço") || txt.startsWith("saida almoco")) COL.saidaAlmoco = c;
+      else if (txt.startsWith("volta almoço") || txt.startsWith("volta almoco")) COL.voltaAlmoco = c;
+      else if (txt.startsWith("saída") || txt.startsWith("saida")) COL.saida = c;
+      else if (txt.startsWith("intervalo")) COL.intervalo = c;
+      else if (txt.startsWith("he 60") || txt.startsWith("he60")) COL.he60 = c;
+      else if (txt.startsWith("he 100") || txt.startsWith("he100")) COL.he100 = c;
+      else if (txt.startsWith("atraso")) COL.atrasos = c;
+      else if (txt.startsWith("falta")) COL.faltas = c;
+      else if (txt.startsWith("observ") || txt.startsWith("obs")) COL.obs = c;
+    }
+
+    if (COL.entrada === null || COL.saida === null) {
+      res.status(400).json({
+        error:
+          "Cabeçalho não encontrado. Use o arquivo gerado pelo modelo ou pela exportação da folha individual.",
+      });
+      return;
+    }
+
+    const isNewLayout = COL.tipo !== null;
+
+    const rows = ws.getRows(headerRowNum + 1, Math.max(ws.rowCount - headerRowNum, 0)) ?? [];
 
     for (const row of rows) {
       const dataVal = row.getCell(1).value;
@@ -582,7 +621,7 @@ router.post("/importar", async (req: Request, res: Response) => {
         tipo = parsed;
       } else {
         // Compat layout antigo: derivar de faltas/observações sem suporte a justificativa
-        const faltasVal = row.getCell(COL.faltas as number).value;
+        const faltasVal = COL.faltas !== null ? row.getCell(COL.faltas).value : null;
         const faltasNum = faltasVal !== null && faltasVal !== undefined
           ? parseFloat(String(faltasVal).replace(",", ".")) || 0
           : 0;
