@@ -609,7 +609,7 @@ export default function FolhaIndividual() {
   const saveInline = useCallback(
     async (
       reg: FolhaRegistro,
-      changes: Partial<Pick<RegistroPonto, "entrada" | "saida" | "saida_almoco" | "volta_almoco" | "tipo_dia">>,
+      changes: Partial<Pick<RegistroPonto, "entrada" | "saida" | "saida_almoco" | "volta_almoco" | "intervalo" | "tipo_dia">>,
     ) => {
       if (!numId) return;
 
@@ -619,6 +619,7 @@ export default function FolhaIndividual() {
         saida: reg.saida ?? null,
         saida_almoco: reg.saida_almoco ?? null,
         volta_almoco: reg.volta_almoco ?? null,
+        intervalo: reg.intervalo ?? null,
         observacoes: reg.observacoes ?? null,
         tipo_dia: ((reg.tipo_dia as TipoDia | undefined) ?? "normal") as TipoDia,
         ...changes,
@@ -629,6 +630,7 @@ export default function FolhaIndividual() {
       let saida = merged.saida ?? null;
       let saidaAlmoco = merged.saida_almoco ?? null;
       let voltaAlmoco = merged.volta_almoco ?? null;
+      let intervaloManual = merged.intervalo ?? null;
 
       // Tipo change: clear horários for tipos sem horário
       if ("tipo_dia" in changes) {
@@ -670,6 +672,20 @@ export default function FolhaIndividual() {
       const intervaloDerivado = TIPOS_SEM_HORARIO.has(tipo)
         ? null
         : deriveIntervalo(saidaAlmoco, voltaAlmoco);
+      // Quando ambas as pontas do almoço estão vazias, o usuário pode editar o
+      // intervalo direto na linha. Se editou (ou se o intervalo manual já existia)
+      // e limpou o campo, "00:00" sobrescreve o fallback do `jornada_padrao`.
+      const intervaloEditavel = !TIPOS_SEM_HORARIO.has(tipo) && !saidaAlmoco && !voltaAlmoco;
+      let intervaloFinal: string | null;
+      if (intervaloDerivado) {
+        intervaloFinal = intervaloDerivado;
+      } else if ("intervalo" in changes) {
+        intervaloFinal = intervaloManual || (intervaloEditavel ? "00:00" : null);
+      } else if (intervaloEditavel) {
+        intervaloFinal = intervaloManual ?? null;
+      } else {
+        intervaloFinal = null;
+      }
 
       await upsert.mutateAsync({
         data: {
@@ -679,7 +695,7 @@ export default function FolhaIndividual() {
           saida,
           saida_almoco: saidaAlmoco,
           volta_almoco: voltaAlmoco,
-          intervalo: intervaloDerivado,
+          intervalo: intervaloFinal,
           observacoes: merged.observacoes ?? null,
           tipo_dia: tipo,
         },
@@ -874,7 +890,16 @@ export default function FolhaIndividual() {
                         onSave={(v) => saveInline(reg, { saida: v })}
                       />
                     </td>
-                    <td className="px-3 py-2 text-center font-mono text-sm">{fmt(reg.intervalo)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {!reg.saida_almoco && !reg.volta_almoco ? (
+                        <EditableTimeCell
+                          value={reg.intervalo}
+                          onSave={(v) => saveInline(reg, { intervalo: v })}
+                        />
+                      ) : (
+                        <span className="font-mono text-sm">{fmt(reg.intervalo)}</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2 text-center font-mono text-sm font-medium">
                       {reg.total_horas ? reg.total_horas : <span className="text-gray-300">—</span>}
                     </td>
