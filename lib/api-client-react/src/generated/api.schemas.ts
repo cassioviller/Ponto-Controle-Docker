@@ -44,6 +44,7 @@ export interface Funcionario {
   pis?: string | null;
   escala_quinzenal: boolean;
   quinzena_referencia?: string | null;
+  he_100_acima_2h: boolean;
   criado_em: string;
 }
 
@@ -93,6 +94,7 @@ export interface CreateFuncionarioBody {
   pis?: string | null;
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
+  he_100_acima_2h?: boolean;
 }
 
 export interface UpdateFuncionarioBody {
@@ -121,6 +123,7 @@ export interface UpdateFuncionarioBody {
   pis?: string | null;
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
+  he_100_acima_2h?: boolean;
 }
 
 export interface FuncionarioArquivo {

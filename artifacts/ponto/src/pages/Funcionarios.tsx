@@ -18,6 +18,7 @@ import type {
 import { useEmpresa } from "@/contexts/EmpresaContext";
 import { baseUrl, authHeaders, formatBRL } from "@/lib/utils";
 import { maskHHMM } from "@/lib/hhmm";
+import { toast } from "@/hooks/use-toast";
 
 const VINCULOS = ["CLT", "Contribuinte", "Autonomo", "Estagiario"];
 const SITUACOES = ["Ativo", "Demitido", "Aviso", "Ferias"];
@@ -151,6 +152,7 @@ type FormState = Partial<CreateFuncionarioBody & { id?: number }> & {
   pis?: string | null;
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
+  he_100_acima_2h?: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -179,6 +181,7 @@ const EMPTY_FORM: FormState = {
   pis: "",
   escala_quinzenal: false,
   quinzena_referencia: "",
+  he_100_acima_2h: true,
 };
 
 function fileTypeIcon(mime: string): string {
@@ -320,6 +323,8 @@ export default function Funcionarios() {
       escala_quinzenal: (f as Funcionario & { escala_quinzenal?: boolean }).escala_quinzenal ?? false,
       quinzena_referencia:
         (f as Funcionario & { quinzena_referencia?: string | null }).quinzena_referencia ?? "",
+      he_100_acima_2h:
+        (f as Funcionario & { he_100_acima_2h?: boolean }).he_100_acima_2h ?? true,
     });
     setEditId(f.id);
     setUploadError(null);
@@ -425,8 +430,19 @@ export default function Funcionarios() {
       const formData = buildBody();
       let funcionarioId: number;
       if (editId) {
-        await update.mutateAsync({ id: editId, data: formData as UpdateFuncionarioBody });
+        const updated = await update.mutateAsync({
+          id: editId,
+          data: formData as UpdateFuncionarioBody,
+        });
         funcionarioId = editId;
+        const recalc = (updated as Funcionario & { registros_recalculados?: number })
+          .registros_recalculados;
+        if (typeof recalc === "number" && recalc > 0) {
+          toast({
+            title: "Registros recalculados",
+            description: `${recalc} registro(s) com Tipo do Dia 'normal' foram recalculados pela nova regra de HE.`,
+          });
+        }
       } else {
         const created = await create.mutateAsync({ data: formData });
         funcionarioId = (created as Funcionario).id;
@@ -775,6 +791,25 @@ export default function Funcionarios() {
                       className="w-4 h-4 accent-[#4A90D9]"
                     />
                     <label htmlFor="ativo" className="text-sm text-gray-700">Ativo</label>
+                  </div>
+                  <div className="col-span-2 border-t pt-3 mt-1">
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="he_100_acima_2h"
+                        checked={form.he_100_acima_2h ?? true}
+                        onChange={(e) => setField("he_100_acima_2h", e.target.checked)}
+                        className="w-4 h-4 accent-[#4A90D9] mt-0.5"
+                      />
+                      <label htmlFor="he_100_acima_2h" className="text-sm text-gray-700 leading-snug">
+                        <span className="font-medium">HE 100% acima de 2h em dias normais</span>
+                        <span className="block text-xs text-gray-500 mt-0.5">
+                          Quando desligado, todo o excedente de horas em dias <strong>normais</strong> vai
+                          para HE 60% (sem o teto de 2h). Outros tipos de dia não são afetados.
+                          Alterar este campo recalcula todos os registros existentes.
+                        </span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </section>

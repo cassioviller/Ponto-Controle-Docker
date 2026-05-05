@@ -713,6 +713,7 @@ router.post("/importar", async (req: Request, res: Response) => {
         jornada: jornadaInfo,
         dateStr: dataStr,
         jornadaDiariaFallback: funcionario.jornada_diaria,
+        he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
       });
       const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
 

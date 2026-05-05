@@ -122,8 +122,11 @@ function calcByTipo(
   intervalo: string | null | undefined,
   jornada: JornadaPadrao,
   jornadaDiariaFallback: string | null = null,
+  // Quando false, em dias 'normal' todo o excedente vira HE 60% (sem cap de 2h).
+  he100AcimaDe2h: boolean = true,
 ): { total_horas: string | null; he_60: string | null; he_100: string | null; atrasos: string | null; faltas: string; intervalo_used: string | null; horas_justificadas: string | null } {
-  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+  // `??` para que "00:00" (sem intervalo) sobrescreva o intervalo padrão da jornada.
+  const intervaloUsed = intervalo ?? jornada?.intervalo_padrao ?? null;
   const jornadaMin = jornadaNetMin(jornada, jornadaDiariaFallback);
 
   const trabMin = entrada && saida
@@ -155,8 +158,8 @@ function calcByTipo(
     return { total_horas: null, he_60: null, he_100: null, atrasos: null, faltas: "0", intervalo_used: intervaloUsed, horas_justificadas: null };
   }
   const extraMin = Math.max(trabMin - jornadaMin, 0);
-  const he60Min = Math.min(extraMin, 120);
-  const he100Min = Math.max(extraMin - 120, 0);
+  const he60Min = he100AcimaDe2h ? Math.min(extraMin, 120) : extraMin;
+  const he100Min = he100AcimaDe2h ? Math.max(extraMin - 120, 0) : 0;
   const atrasosMin = trabMin < jornadaMin ? jornadaMin - trabMin : 0;
   return {
     total_horas: minutesToTime(trabMin),
@@ -409,20 +412,26 @@ export default function FolhaIndividual() {
         key === "entrada" ||
         key === "saida" ||
         key === "saida_almoco" ||
-        key === "volta_almoco"
+        key === "volta_almoco" ||
+        key === "intervalo"
       ) {
         const nextSaidaAlmoco = key === "saida_almoco" ? (value || null) : (prev.saida_almoco ?? null);
         const nextVoltaAlmoco = key === "volta_almoco" ? (value || null) : (prev.volta_almoco ?? null);
         const intervaloDerivado = deriveIntervalo(nextSaidaAlmoco, nextVoltaAlmoco);
+        // Quando ambas as pontas do almoço estão vazias, o usuário pode digitar
+        // o intervalo manualmente (incluindo "00:00" para indicar sem intervalo).
+        const nextIntervalo = intervaloDerivado
+          ?? (key === "intervalo" ? (value || null) : (prev.intervalo ?? null));
         const tipo = (prev.tipo_dia as TipoDia | undefined) ?? "normal";
 
         const calc = calcByTipo(
           tipo,
           key === "entrada" ? value : prev.entrada,
           key === "saida" ? value : prev.saida,
-          intervaloDerivado,
+          nextIntervalo,
           prev.jornada_padrao ?? null,
           folha?.funcionario?.jornada_diaria ?? null,
+          (folha?.funcionario as { he_100_acima_2h?: boolean } | undefined)?.he_100_acima_2h ?? true,
         );
         return {
           ...updated,
@@ -432,7 +441,7 @@ export default function FolhaIndividual() {
           atrasos: calc.atrasos,
           faltas: calc.faltas,
           horas_justificadas: calc.horas_justificadas,
-          intervalo: intervaloDerivado,
+          intervalo: nextIntervalo,
         };
       }
 
@@ -459,6 +468,7 @@ export default function FolhaIndividual() {
         intervaloDerivado,
         prev.jornada_padrao ?? null,
         folha?.funcionario?.jornada_diaria ?? null,
+        (folha?.funcionario as { he_100_acima_2h?: boolean } | undefined)?.he_100_acima_2h ?? true,
       );
       return {
         ...prev,
@@ -508,6 +518,7 @@ export default function FolhaIndividual() {
         intervaloP,
         prev.jornada_padrao ?? null,
         folha?.funcionario?.jornada_diaria ?? null,
+        (folha?.funcionario as { he_100_acima_2h?: boolean } | undefined)?.he_100_acima_2h ?? true,
       );
       return {
         ...prev,
@@ -537,6 +548,7 @@ export default function FolhaIndividual() {
         null,
         prev.jornada_padrao ?? null,
         folha?.funcionario?.jornada_diaria ?? null,
+        (folha?.funcionario as { he_100_acima_2h?: boolean } | undefined)?.he_100_acima_2h ?? true,
       );
       return {
         ...prev,
@@ -915,19 +927,24 @@ export default function FolhaIndividual() {
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
-              {(
-                [
+              {(() => {
+                // Intervalo é editável manualmente APENAS quando ambas as pontas do almoço
+                // estão vazias (sem `saida_almoco` e sem `volta_almoco`). Caso contrário é
+                // derivado automaticamente. Permite "00:00" para indicar sem intervalo.
+                const intervaloEditavel =
+                  !editingRow.saida_almoco && !editingRow.volta_almoco;
+                return [
                   { key: "entrada", label: "Entrada" },
                   { key: "saida", label: "Saída" },
                   { key: "saida_almoco", label: "Saída Almoço" },
                   { key: "volta_almoco", label: "Volta Almoço" },
-                  { key: "intervalo", label: "Intervalo", readOnly: true },
+                  { key: "intervalo", label: "Intervalo", readOnly: !intervaloEditavel },
                   { key: "total_horas", label: "Total Horas", readOnly: true },
                   { key: "he_60", label: "HE 60%" },
                   { key: "he_100", label: "HE 100%" },
                   { key: "atrasos", label: "Atrasos" },
-                ] as { key: keyof EditRow; label: string; readOnly?: boolean }[]
-              ).map(({ key, label, readOnly }) => (
+                ] as { key: keyof EditRow; label: string; readOnly?: boolean }[];
+              })().map(({ key, label, readOnly }) => (
                 <div key={key as string}>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     {label} (HH:MM){readOnly ? " — auto" : ""}

@@ -273,6 +273,8 @@ router.post("/registros", async (req, res) => {
       }
     }
     const intervaloDerivado = deriveIntervalo(body.saida_almoco, body.volta_almoco);
+    // body.intervalo (se enviado) tem precedência sobre o intervalo_padrao da jornada,
+    // permitindo override explícito por dia (incluindo "00:00" = sem intervalo).
     const intervaloFinal =
       intervaloDerivado ?? body.intervalo ?? jornadaDia?.intervalo_padrao ?? null;
 
@@ -314,6 +316,7 @@ router.post("/registros", async (req, res) => {
       jornada: jornadaInfoBase,
       dateStr: body.data,
       jornadaDiariaFallback: jornadaDiaria,
+      he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
     });
 
     const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
@@ -518,6 +521,7 @@ router.post("/ponto/bater", async (req, res) => {
         jornada: jornadaInfo,
         dateStr: data,
         jornadaDiariaFallback: funcionario.jornada_diaria,
+        he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
       });
       const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
 

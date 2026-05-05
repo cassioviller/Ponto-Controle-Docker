@@ -159,6 +159,11 @@ export interface CalcFromTipoDiaArgs {
   jornada: JornadaDia | null | undefined;
   dateStr: string;
   jornadaDiariaFallback?: string | null | undefined;
+  /**
+   * Quando false, todo excedente em dias 'normal' vira HE 60% (sem cap de 2h);
+   * HE 100% fica zerada. Outros tipos de dia não são afetados. Default: true.
+   */
+  he100AcimaDe2h?: boolean;
 }
 
 /**
@@ -167,8 +172,10 @@ export interface CalcFromTipoDiaArgs {
  */
 export function calcFromTipoDia(args: CalcFromTipoDiaArgs): CalcResult {
   const { tipo, entrada, saida, intervalo, jornada, jornadaDiariaFallback } = args;
+  const he100AcimaDe2h = args.he100AcimaDe2h ?? true;
 
-  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+  // `??` (não `||`) para que "00:00" explícito (sem intervalo) sobrescreva o fallback da jornada.
+  const intervaloUsed = intervalo ?? jornada?.intervalo_padrao ?? null;
   const fallbackMin = timeToMinutes(jornadaDiariaFallback) || 480;
   const jornadaMin = jornada && jornada.entrada_padrao && jornada.saida_padrao
     ? calcJornadaNetMin(jornada)
@@ -255,10 +262,12 @@ export function calcFromTipoDia(args: CalcFromTipoDiaArgs): CalcResult {
         atrasoMin = Math.max(timeToMinutes(entrada) - timeToMinutes(jornada.entrada_padrao), 0);
       }
       const atrasosMin = trabalhadasMin < jornadaMin ? jornadaMin - trabalhadasMin : atrasoMin;
+      const he60Min = he100AcimaDe2h ? Math.min(extraMin, 120) : extraMin;
+      const he100Min = he100AcimaDe2h ? Math.max(extraMin - 120, 0) : 0;
       return {
         total_horas: minutesToTime(trabalhadasMin),
-        he_60: minutesToTime(Math.min(extraMin, 120)),
-        he_100: minutesToTime(Math.max(extraMin - 120, 0)),
+        he_60: minutesToTime(he60Min),
+        he_100: minutesToTime(he100Min),
         atrasos: minutesToTime(Math.max(atrasosMin, 0)),
         faltas: "0",
         intervalo_used: intervaloUsed,
@@ -322,7 +331,7 @@ export function calcFromJornada(
   const isFeriado = isDomFeriado(dateStr);
   const isFolga = isFeriado || (jornada?.is_folga ?? false);
 
-  const intervaloUsed = intervalo || jornada?.intervalo_padrao || null;
+  const intervaloUsed = intervalo ?? jornada?.intervalo_padrao ?? null;
 
   const fallbackMin = timeToMinutes(jornadaDiariaFallback) || 480;
   const jornadaMinFromDay = jornada && jornada.entrada_padrao && jornada.saida_padrao

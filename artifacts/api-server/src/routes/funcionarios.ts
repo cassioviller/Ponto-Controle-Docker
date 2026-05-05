@@ -7,8 +7,19 @@ import {
   funcionariosTable,
   funcionarioArquivosTable,
   insertFuncionarioSchema,
+  registrosPontoTable,
+  jornadasPadraoTable,
+  feriadosTable,
 } from "@workspace/db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import {
+  calcFromTipoDia,
+  legacyMirrorFromTipo,
+  computeSemanaForDate,
+  getDiaSemanaNum,
+  isTipoDia,
+  type TipoDia,
+} from "../lib/timeUtils";
 import {
   GetFuncionariosQueryParams,
   GetFuncionarioParams,
@@ -172,6 +183,16 @@ router.put("/funcionarios/:id", async (req, res) => {
     const conditions = [eq(funcionariosTable.id, id)];
     if (empresaId) conditions.push(eq(funcionariosTable.empresa_id, empresaId));
 
+    // Carrega valor anterior do toggle para detectar mudança e disparar backfill.
+    const [prev] = await db
+      .select()
+      .from(funcionariosTable)
+      .where(conditions.length === 1 ? conditions[0] : and(...conditions));
+    if (!prev) {
+      res.status(404).json({ error: "Funcionário não encontrado" });
+      return;
+    }
+
     const [row] = await db
       .update(funcionariosTable)
       .set(normalizeAdiantamentoForDb(body))
@@ -181,11 +202,110 @@ router.put("/funcionarios/:id", async (req, res) => {
       res.status(404).json({ error: "Funcionário não encontrado" });
       return;
     }
-    res.json(serializeFuncionario(row));
+
+    let registros_recalculados = 0;
+    if (
+      typeof body.he_100_acima_2h === "boolean" &&
+      body.he_100_acima_2h !== prev.he_100_acima_2h
+    ) {
+      registros_recalculados = await backfillRegistrosNormais(row);
+    }
+
+    res.json({ ...serializeFuncionario(row), registros_recalculados });
   } catch (err: unknown) {
     res.status(400).json({ error: errMsg(err) });
   }
 });
+
+/**
+ * Recalcula HE 60% / HE 100% / atrasos / total_horas / faltas para todos os
+ * registros do funcionário com `tipo_dia = 'normal'`, aplicando a nova regra
+ * de `he_100_acima_2h`. Outros tipos de dia não são afetados. Roda em uma
+ * única transação. Retorna a quantidade de linhas atualizadas.
+ */
+async function backfillRegistrosNormais(
+  funcionario: typeof funcionariosTable.$inferSelect,
+): Promise<number> {
+  const jornadas = await db
+    .select()
+    .from(jornadasPadraoTable)
+    .where(eq(jornadasPadraoTable.funcionario_id, funcionario.id));
+  const jornadaMap = new Map<string, typeof jornadas[number]>();
+  for (const j of jornadas) jornadaMap.set(`${j.dia_semana}-${j.semana}`, j);
+
+  const feriados = funcionario.empresa_id
+    ? await db
+        .select()
+        .from(feriadosTable)
+        .where(eq(feriadosTable.empresa_id, funcionario.empresa_id))
+    : [];
+  const feriadoSet = new Set(feriados.map((f) => f.data));
+
+  const registros = await db
+    .select()
+    .from(registrosPontoTable)
+    .where(
+      and(
+        eq(registrosPontoTable.funcionario_id, funcionario.id),
+        eq(registrosPontoTable.tipo_dia, "normal"),
+      ),
+    );
+
+  let updated = 0;
+  await db.transaction(async (tx) => {
+    for (const reg of registros) {
+      const tipo: TipoDia = isTipoDia(reg.tipo_dia) ? reg.tipo_dia : "normal";
+      if (tipo !== "normal") continue;
+
+      const dow = getDiaSemanaNum(reg.data);
+      const semana = funcionario.escala_quinzenal
+        ? computeSemanaForDate(reg.data, funcionario.quinzena_referencia ?? null)
+        : 1;
+      const jornadaDia =
+        jornadaMap.get(`${dow}-${semana}`) ??
+        (semana === 2 ? jornadaMap.get(`${dow}-1`) ?? null : null);
+      const isFeriadoEmp = feriadoSet.has(reg.data);
+      const jornadaInfo = jornadaDia
+        ? {
+            entrada_padrao: jornadaDia.entrada_padrao,
+            saida_padrao: jornadaDia.saida_padrao,
+            intervalo_padrao: jornadaDia.intervalo_padrao,
+            is_folga: jornadaDia.is_folga || isFeriadoEmp,
+          }
+        : isFeriadoEmp
+          ? { entrada_padrao: null, saida_padrao: null, intervalo_padrao: null, is_folga: true }
+          : null;
+
+      const calc = calcFromTipoDia({
+        tipo,
+        entrada: reg.entrada,
+        saida: reg.saida,
+        intervalo: reg.intervalo,
+        jornada: jornadaInfo,
+        dateStr: reg.data,
+        jornadaDiariaFallback: funcionario.jornada_diaria,
+        he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
+      });
+      const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
+
+      await tx
+        .update(registrosPontoTable)
+        .set({
+          total_horas: calc.total_horas,
+          he_60: calc.he_60,
+          he_100: calc.he_100,
+          atrasos: calc.atrasos,
+          faltas: mirror.faltas,
+          justificativa: mirror.justificativa,
+          horas_justificadas: calc.horas_justificadas,
+          atualizado_em: new Date(),
+        })
+        .where(eq(registrosPontoTable.id, reg.id));
+      updated += 1;
+    }
+  });
+  return updated;
+}
 
 router.delete("/funcionarios/:id", async (req, res) => {
   try {

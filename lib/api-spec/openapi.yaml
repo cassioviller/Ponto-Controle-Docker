@@ -497,6 +497,8 @@ components:
         quinzena_referencia:
           type: string
           nullable: true
+        he_100_acima_2h:
+          type: boolean
         criado_em:
           type: string
       required:
@@ -511,6 +513,7 @@ components:
         - jornada_diaria
         - ativo
         - escala_quinzenal
+        - he_100_acima_2h
         - criado_em
 
     CreateFuncionarioBody:
@@ -583,6 +586,8 @@ components:
         quinzena_referencia:
           type: string
           nullable: true
+        he_100_acima_2h:
+          type: boolean
       required:
         - codigo
         - nome
@@ -655,6 +660,8 @@ components:
         quinzena_referencia:
           type: string
           nullable: true
+        he_100_acima_2h:
+          type: boolean
 
     FuncionarioArquivo:
       type: object

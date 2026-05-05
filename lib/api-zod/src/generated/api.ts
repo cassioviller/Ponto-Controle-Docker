@@ -50,6 +50,7 @@ export const GetFuncionariosResponseItem = zod.object({
   pis: zod.string().nullish(),
   escala_quinzenal: zod.boolean(),
   quinzena_referencia: zod.string().nullish(),
+  he_100_acima_2h: zod.boolean(),
   criado_em: zod.string(),
 });
 export const GetFuncionariosResponse = zod.array(GetFuncionariosResponseItem);
@@ -85,6 +86,7 @@ export const CreateFuncionarioBody = zod.object({
   pis: zod.string().nullish(),
   escala_quinzenal: zod.boolean().optional(),
   quinzena_referencia: zod.string().nullish(),
+  he_100_acima_2h: zod.boolean().optional(),
 });
 
 /**
@@ -121,6 +123,7 @@ export const GetFuncionarioResponse = zod.object({
   pis: zod.string().nullish(),
   escala_quinzenal: zod.boolean(),
   quinzena_referencia: zod.string().nullish(),
+  he_100_acima_2h: zod.boolean(),
   criado_em: zod.string(),
 });
 
@@ -157,6 +160,7 @@ export const UpdateFuncionarioBody = zod.object({
   pis: zod.string().nullish(),
   escala_quinzenal: zod.boolean().optional(),
   quinzena_referencia: zod.string().nullish(),
+  he_100_acima_2h: zod.boolean().optional(),
 });
 
 export const UpdateFuncionarioResponse = zod.object({
@@ -186,6 +190,7 @@ export const UpdateFuncionarioResponse = zod.object({
   pis: zod.string().nullish(),
   escala_quinzenal: zod.boolean(),
   quinzena_referencia: zod.string().nullish(),
+  he_100_acima_2h: zod.boolean(),
   criado_em: zod.string(),
 });
 
@@ -281,6 +286,7 @@ export const GetRegistrosFuncionarioResponse = zod.object({
     pis: zod.string().nullish(),
     escala_quinzenal: zod.boolean(),
     quinzena_referencia: zod.string().nullish(),
+    he_100_acima_2h: zod.boolean(),
     criado_em: zod.string(),
   }),
   mes: zod.string(),
