@@ -292,7 +292,7 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
     wb.creator = "Controle de Ponto";
     const ws = wb.addWorksheet("Folha Individual");
 
-    ws.mergeCells("A1:M1");
+    ws.mergeCells("A1:G1");
     ws.getCell("A1").value = "CONTROLE DE PONTO — FOLHA INDIVIDUAL";
     ws.getCell("A1").style = {
       font: { bold: true, size: 14 },
@@ -312,12 +312,6 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
       { key: "saida", width: 12 },
       { key: "saida_almoco", width: 14 },
       { key: "volta_almoco", width: 14 },
-      { key: "intervalo", width: 12 },
-      { key: "total_horas", width: 14 },
-      { key: "he_60", width: 12 },
-      { key: "he_100", width: 14 },
-      { key: "atrasos", width: 12 },
-      { key: "observacoes", width: 30 },
     ];
 
     const headerRow = ws.addRow([
@@ -328,29 +322,16 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
       "Saída",
       "Saída Almoço",
       "Volta Almoço",
-      "Intervalo",
-      "Total Horas",
-      "HE 60%",
-      "HE 100%",
-      "Atrasos",
-      "Observações",
     ]);
     headerRow.eachCell((cell) => Object.assign(cell, { style: HEADER_STYLE }));
     headerRow.height = 22;
 
-    for (const colKey of [
-      "entrada",
-      "saida",
-      "saida_almoco",
-      "volta_almoco",
-      "intervalo",
-      "total_horas",
-      "he_60",
-      "he_100",
-      "atrasos",
-    ]) {
+    for (const colKey of ["entrada", "saida", "saida_almoco", "volta_almoco"]) {
       ws.getColumn(colKey).numFmt = HHMM_NUMFMT;
     }
+
+    const tipoLabels = TIPOS_DIA.map((t) => TIPO_LABEL[t]);
+    const dvFormula = `"${tipoLabels.join(",")}"`;
 
     days.forEach((data) => {
       const reg = registroMap.get(data);
@@ -367,13 +348,17 @@ router.get("/exportar/folha/:id", async (req: Request, res: Response) => {
         saida: hhmmStrToExcelNumber(reg?.saida),
         saida_almoco: hhmmStrToExcelNumber(reg?.saida_almoco),
         volta_almoco: hhmmStrToExcelNumber(reg?.volta_almoco),
-        intervalo: hhmmStrToExcelNumber(reg?.intervalo),
-        total_horas: hhmmStrToExcelNumber(reg?.total_horas),
-        he_60: hhmmStrToExcelNumber(reg?.he_60),
-        he_100: hhmmStrToExcelNumber(reg?.he_100),
-        atrasos: hhmmStrToExcelNumber(reg?.atrasos),
-        observacoes: reg?.observacoes ?? "",
       });
+
+      ws.getCell(`C${row.number}`).dataValidation = {
+        type: "list",
+        allowBlank: false,
+        formulae: [dvFormula],
+        showErrorMessage: true,
+        errorStyle: "stop",
+        errorTitle: "Tipo inválido",
+        error: `Selecione um valor da lista: ${tipoLabels.join(", ")}`,
+      };
 
       const tipoColor = TIPO_COLOR[tipo];
       if (tipoColor) {
