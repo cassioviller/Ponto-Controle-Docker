@@ -47,7 +47,7 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-async function getJornadaDia(
+export async function getJornadaDia(
   funcionarioId: number,
   dateStr: string,
   funcionario?: { escala_quinzenal?: boolean | null; quinzena_referencia?: string | null } | null,
@@ -84,7 +84,7 @@ async function getJornadaDia(
   return null;
 }
 
-async function isFeriadoEmpresa(empresaId: number | undefined, dateStr: string): Promise<boolean> {
+export async function isFeriadoEmpresa(empresaId: number | undefined, dateStr: string): Promise<boolean> {
   if (!empresaId) return false;
   const feriados = await db
     .select()

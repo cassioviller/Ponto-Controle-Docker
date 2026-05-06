@@ -505,6 +505,10 @@ export function getCurrentDateStr(): string {
   return new Date().toISOString().split("T")[0]!;
 }
 
+export function getCurrentDateStrBR(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+}
+
 function calcEasterSunday(year: number): Date {
   const a = year % 19;
   const b = Math.floor(year / 100);

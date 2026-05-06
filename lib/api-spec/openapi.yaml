@@ -18,6 +18,8 @@ tags:
     description: Relatórios e consolidados
   - name: excel
     description: Exportação e importação de Excel
+  - name: kiosk
+    description: Quiosque de ponto (link diário público)
 
 paths:
   /healthz:
@@ -369,6 +371,94 @@ paths:
               schema:
                 type: string
                 format: binary
+
+  /kiosk/admin/today:
+    get:
+      operationId: getKioskAdminToday
+      tags: [kiosk]
+      summary: Obter (ou gerar) token do quiosque do dia
+      responses:
+        "200":
+          description: Token do dia
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskAdminToken"
+
+  /kiosk/admin/rotate:
+    post:
+      operationId: rotateKioskToken
+      tags: [kiosk]
+      summary: Revogar token atual e gerar novo token para hoje
+      responses:
+        "200":
+          description: Novo token gerado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskAdminToken"
+
+  /kiosk/{token}:
+    get:
+      operationId: getKioskPublicState
+      tags: [kiosk]
+      summary: Resolver token público e retornar empresa + funcionários (sem auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Estado do quiosque
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskPublicState"
+        "410":
+          description: Token expirado ou inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /kiosk/{token}/bater:
+    post:
+      operationId: kioskBaterPonto
+      tags: [kiosk]
+      summary: Registrar ponto via quiosque (sem auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/KioskBaterBody"
+      responses:
+        "200":
+          description: Ponto registrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaterPontoResponse"
+        "400":
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "410":
+          description: Token expirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
   /importar:
     post:
@@ -1018,3 +1108,64 @@ components:
         - importados
         - erros
         - mes
+
+    KioskAdminToken:
+      type: object
+      properties:
+        token:
+          type: string
+        valid_date:
+          type: string
+        criado_em:
+          type: string
+      required:
+        - token
+        - valid_date
+        - criado_em
+
+    KioskFuncionario:
+      type: object
+      properties:
+        id:
+          type: integer
+        nome:
+          type: string
+        cargo:
+          type: string
+          nullable: true
+      required:
+        - id
+        - nome
+
+    KioskPublicState:
+      type: object
+      properties:
+        empresa:
+          type: object
+          properties:
+            nome:
+              type: string
+          required:
+            - nome
+        funcionarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/KioskFuncionario"
+        valid_date:
+          type: string
+      required:
+        - empresa
+        - funcionarios
+        - valid_date
+
+    KioskBaterBody:
+      type: object
+      properties:
+        funcionario_id:
+          type: integer
+        tipo:
+          type: string
+          enum: [entrada, saida_almoco, volta_almoco, saida]
+      required:
+        - funcionario_id
+        - tipo

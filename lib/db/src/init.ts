@@ -191,6 +191,18 @@ BEGIN
       UNIQUE (funcionario_id, dia_semana, semana);
   END IF;
 END $$;
+
+-- Quiosque: tokens diários por empresa
+CREATE TABLE IF NOT EXISTS kiosk_tokens (
+  id SERIAL PRIMARY KEY,
+  empresa_id INTEGER NOT NULL REFERENCES empresas(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  valid_date TEXT NOT NULL,
+  criado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_kiosk_tokens_empresa_data
+  ON kiosk_tokens (empresa_id, valid_date);
 `;
 
 export async function runDbInit(): Promise<void> {

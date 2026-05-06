@@ -9,6 +9,7 @@ import excelRouter from "./excel";
 import empresasRouter from "./empresas";
 import jornadasRouter from "./jornadas";
 import manualRouter from "./manual";
+import kioskRouter from "./kiosk";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -19,6 +20,9 @@ router.use(authRouter);
 
 // Super-admin-only management routes.
 router.use(adminRouter);
+
+// Kiosk: public token routes + authenticated admin sub-routes (requireAuth handled per-route inside).
+router.use("/kiosk", kioskRouter);
 
 // All remaining routes require authentication.
 router.use(requireAuth);
