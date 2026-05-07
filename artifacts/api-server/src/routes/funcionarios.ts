@@ -203,12 +203,16 @@ router.put("/funcionarios/:id", async (req, res) => {
       return;
     }
 
+    type WithIntervalo = { intervalo_nao_descontado?: boolean | null };
+    const bodyExt = body as typeof body & WithIntervalo;
+    const prevExt = prev as typeof prev & WithIntervalo;
+
     const he100Changed =
       typeof body.he_100_acima_2h === "boolean" &&
       body.he_100_acima_2h !== prev.he_100_acima_2h;
     const intervaloNdChanged =
-      typeof body.intervalo_nao_descontado === "boolean" &&
-      body.intervalo_nao_descontado !== prev.intervalo_nao_descontado;
+      typeof bodyExt.intervalo_nao_descontado === "boolean" &&
+      bodyExt.intervalo_nao_descontado !== prevExt.intervalo_nao_descontado;
 
     let registros_recalculados = 0;
     if (he100Changed || intervaloNdChanged) {
