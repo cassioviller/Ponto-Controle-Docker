@@ -260,6 +260,7 @@ router.post("/:token/bater", async (req: Request, res: Response) => {
         tipo, entrada: prevReg.entrada, saida: horario, intervalo: intervaloFinal,
         jornada: jornadaInfo, dateStr: data, jornadaDiariaFallback: funcionario.jornada_diaria,
         he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
+        intervaloNaoDescontado: (funcionario as typeof funcionario & { intervalo_nao_descontado?: boolean | null }).intervalo_nao_descontado ?? false,
       });
       const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
 

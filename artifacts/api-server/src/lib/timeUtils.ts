@@ -164,6 +164,11 @@ export interface CalcFromTipoDiaArgs {
    * HE 100% fica zerada. Outros tipos de dia não são afetados. Default: true.
    */
   he100AcimaDe2h?: boolean;
+  /**
+   * Quando true (estagiários), o intervalo é registrado normalmente mas NÃO é
+   * subtraído do tempo trabalhado em nenhum tipo de dia. Default: false.
+   */
+  intervaloNaoDescontado?: boolean;
 }
 
 /**
@@ -173,6 +178,7 @@ export interface CalcFromTipoDiaArgs {
 export function calcFromTipoDia(args: CalcFromTipoDiaArgs): CalcResult {
   const { tipo, entrada, saida, intervalo, jornada, jornadaDiariaFallback } = args;
   const he100AcimaDe2h = args.he100AcimaDe2h ?? true;
+  const intervaloNaoDescontado = args.intervaloNaoDescontado ?? false;
 
   // `??` (não `||`) para que "00:00" explícito (sem intervalo) sobrescreva o fallback da jornada.
   const intervaloUsed = intervalo ?? jornada?.intervalo_padrao ?? null;
@@ -181,8 +187,10 @@ export function calcFromTipoDia(args: CalcFromTipoDiaArgs): CalcResult {
     ? calcJornadaNetMin(jornada)
     : fallbackMin;
 
+  // Para estagiários (intervaloNaoDescontado=true), o intervalo não é subtraído do tempo trabalhado.
+  const intervaloDescontadoMin = intervaloNaoDescontado ? 0 : timeToMinutes(intervaloUsed);
   const trabalhadasMin = entrada && saida
-    ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+    ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - intervaloDescontadoMin, 0)
     : 0;
 
   switch (tipo) {
@@ -327,11 +335,13 @@ export function calcFromJornada(
   dateStr: string,
   justificativa: Justificativa | null | undefined = "nenhuma",
   jornadaDiariaFallback: string | null | undefined = null,
+  intervaloNaoDescontado = false,
 ): CalcResult {
   const isFeriado = isDomFeriado(dateStr);
   const isFolga = isFeriado || (jornada?.is_folga ?? false);
 
   const intervaloUsed = intervalo ?? jornada?.intervalo_padrao ?? null;
+  const intervaloDescontadoMin = intervaloNaoDescontado ? 0 : timeToMinutes(intervaloUsed);
 
   const fallbackMin = timeToMinutes(jornadaDiariaFallback) || 480;
   const jornadaMinFromDay = jornada && jornada.entrada_padrao && jornada.saida_padrao
@@ -340,7 +350,7 @@ export function calcFromJornada(
 
   if (justificativa === "justificada") {
     const trabalhadasMin = entrada && saida
-      ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - timeToMinutes(intervaloUsed), 0)
+      ? Math.max(timeToMinutes(saida) - timeToMinutes(entrada) - intervaloDescontadoMin, 0)
       : 0;
     const horasJustMin = Math.max(jornadaMinFromDay - trabalhadasMin, 0);
     return {
@@ -363,8 +373,7 @@ export function calcFromJornada(
 
   const entradaMin = timeToMinutes(entrada);
   const saidaMin = timeToMinutes(saida);
-  const intervaloMin = timeToMinutes(intervaloUsed);
-  let totalMin = saidaMin - entradaMin - intervaloMin;
+  let totalMin = saidaMin - entradaMin - intervaloDescontadoMin;
   if (totalMin < 0) totalMin = 0;
 
   if (isFolga) {

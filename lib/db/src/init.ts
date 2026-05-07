@@ -173,6 +173,9 @@ ALTER TABLE jornadas_padrao ADD COLUMN IF NOT EXISTS semana SMALLINT NOT NULL DE
 -- Per-employee toggle: false = todo excedente em HE 60% (sem cap de 2h)
 ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS he_100_acima_2h BOOLEAN NOT NULL DEFAULT TRUE;
 
+-- Estagiários: intervalo registrado mas não descontado do tempo trabalhado.
+ALTER TABLE funcionarios ADD COLUMN IF NOT EXISTS intervalo_nao_descontado BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Substitui o UNIQUE antigo (funcionario_id, dia_semana) pelo novo que inclui semana.
 DO $$
 BEGIN

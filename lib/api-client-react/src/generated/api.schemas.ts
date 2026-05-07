@@ -45,6 +45,7 @@ export interface Funcionario {
   escala_quinzenal: boolean;
   quinzena_referencia?: string | null;
   he_100_acima_2h: boolean;
+  intervalo_nao_descontado?: boolean;
   criado_em: string;
 }
 
@@ -95,6 +96,7 @@ export interface CreateFuncionarioBody {
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
   he_100_acima_2h?: boolean;
+  intervalo_nao_descontado?: boolean;
 }
 
 export interface UpdateFuncionarioBody {
@@ -124,6 +126,7 @@ export interface UpdateFuncionarioBody {
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
   he_100_acima_2h?: boolean;
+  intervalo_nao_descontado?: boolean;
 }
 
 /**

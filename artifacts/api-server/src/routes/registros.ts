@@ -317,6 +317,7 @@ router.post("/registros", async (req, res) => {
       dateStr: body.data,
       jornadaDiariaFallback: jornadaDiaria,
       he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
+      intervaloNaoDescontado: (funcionario as typeof funcionario & { intervalo_nao_descontado?: boolean | null }).intervalo_nao_descontado ?? false,
     });
 
     const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
@@ -522,6 +523,7 @@ router.post("/ponto/bater", async (req, res) => {
         dateStr: data,
         jornadaDiariaFallback: funcionario.jornada_diaria,
         he100AcimaDe2h: funcionario.he_100_acima_2h ?? true,
+        intervaloNaoDescontado: (funcionario as typeof funcionario & { intervalo_nao_descontado?: boolean | null }).intervalo_nao_descontado ?? false,
       });
       const mirror = legacyMirrorFromTipo(tipo, calc.faltas);
 

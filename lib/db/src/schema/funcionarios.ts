@@ -34,6 +34,8 @@ export const funcionariosTable = pgTable("funcionarios", {
   pis: text("pis"),
   // Quando false, o excedente de horas em dias 'normal' vai todo para HE 60% (sem cap de 2h).
   he_100_acima_2h: boolean("he_100_acima_2h").notNull().default(true),
+  // Quando true, o intervalo registrado NÃO é descontado do tempo trabalhado (estagiários).
+  intervalo_nao_descontado: boolean("intervalo_nao_descontado").notNull().default(false),
   // Escala Quinzenal ("sábado sim, sábado não" — vale para qualquer dia da semana).
   // Quando true, o funcionário possui DUAS jornadas padrão (Semana A=1 e Semana B=2)
   // e a semana de cada data é derivada de `quinzena_referencia`.

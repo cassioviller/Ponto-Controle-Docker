@@ -153,6 +153,7 @@ type FormState = Partial<CreateFuncionarioBody & { id?: number }> & {
   escala_quinzenal?: boolean;
   quinzena_referencia?: string | null;
   he_100_acima_2h?: boolean;
+  intervalo_nao_descontado?: boolean;
 };
 
 const EMPTY_FORM: FormState = {
@@ -182,6 +183,7 @@ const EMPTY_FORM: FormState = {
   escala_quinzenal: false,
   quinzena_referencia: "",
   he_100_acima_2h: true,
+  intervalo_nao_descontado: false,
 };
 
 function fileTypeIcon(mime: string): string {
@@ -325,6 +327,8 @@ export default function Funcionarios() {
         (f as Funcionario & { quinzena_referencia?: string | null }).quinzena_referencia ?? "",
       he_100_acima_2h:
         (f as Funcionario & { he_100_acima_2h?: boolean }).he_100_acima_2h ?? true,
+      intervalo_nao_descontado:
+        (f as Funcionario & { intervalo_nao_descontado?: boolean }).intervalo_nao_descontado ?? false,
     });
     setEditId(f.id);
     setUploadError(null);
@@ -806,6 +810,24 @@ export default function Funcionarios() {
                           Quando desligado, todo o excedente de horas em dias <strong>normais</strong> vai
                           para HE 60% (sem o teto de 2h). Outros tipos de dia não são afetados.
                           Alterar este campo recalcula todos os registros existentes.
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="col-span-2 border-t pt-3 mt-1">
+                    <div className="flex items-start gap-2">
+                      <input
+                        type="checkbox"
+                        id="intervalo_nao_descontado"
+                        checked={form.intervalo_nao_descontado ?? false}
+                        onChange={(e) => setField("intervalo_nao_descontado", e.target.checked)}
+                        className="w-4 h-4 accent-[#4A90D9] mt-0.5"
+                      />
+                      <label htmlFor="intervalo_nao_descontado" className="text-sm text-gray-700 leading-snug">
+                        <span className="font-medium">Não descontar intervalo (estagiário)</span>
+                        <span className="block text-xs text-gray-500 mt-0.5">
+                          O intervalo é registrado e exibido normalmente no ponto, mas <strong>não é subtraído</strong> do
+                          tempo trabalhado e não gera atraso. Use para estagiários com intervalo obrigatório não descontável.
                         </span>
                       </label>
                     </div>
