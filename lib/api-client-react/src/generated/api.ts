@@ -28,6 +28,7 @@ import type {
   FuncionarioArquivo,
   GetConsolidadoParams,
   GetFuncionariosParams,
+  GetKioskTodayRecordParams,
   GetRegistrosFuncionarioParams,
   GetResumoParams,
   HealthStatus,
@@ -36,6 +37,7 @@ import type {
   KioskAdminToken,
   KioskBaterBody,
   KioskPublicState,
+  KioskTodayRecord,
   MessageResponse,
   RegistroPonto,
   ResumoFuncionario,
@@ -1650,6 +1652,123 @@ export const useRotateKioskToken = <
 > => {
   return useMutation(getRotateKioskTokenMutationOptions(options));
 };
+
+/**
+ * @summary Registro de ponto de hoje de um funcionário (sem auth)
+ */
+export const getGetKioskTodayRecordUrl = (
+  token: string,
+  params: GetKioskTodayRecordParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/kiosk/${token}/hoje?${stringifiedParams}`
+    : `/api/kiosk/${token}/hoje`;
+};
+
+export const getKioskTodayRecord = async (
+  token: string,
+  params: GetKioskTodayRecordParams,
+  options?: RequestInit,
+): Promise<KioskTodayRecord> => {
+  return customFetch<KioskTodayRecord>(
+    getGetKioskTodayRecordUrl(token, params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetKioskTodayRecordQueryKey = (
+  token: string,
+  params?: GetKioskTodayRecordParams,
+) => {
+  return [`/api/kiosk/${token}/hoje`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetKioskTodayRecordQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKioskTodayRecord>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  params: GetKioskTodayRecordParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKioskTodayRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKioskTodayRecordQueryKey(token, params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKioskTodayRecord>>
+  > = ({ signal }) =>
+    getKioskTodayRecord(token, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKioskTodayRecord>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKioskTodayRecordQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKioskTodayRecord>>
+>;
+export type GetKioskTodayRecordQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Registro de ponto de hoje de um funcionário (sem auth)
+ */
+
+export function useGetKioskTodayRecord<
+  TData = Awaited<ReturnType<typeof getKioskTodayRecord>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  params: GetKioskTodayRecordParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKioskTodayRecord>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKioskTodayRecordQueryOptions(
+    token,
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Resolver token público e retornar empresa + funcionários (sem auth)

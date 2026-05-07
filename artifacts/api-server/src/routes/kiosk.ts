@@ -25,19 +25,35 @@ function maskToken(token: string): string {
   return token.slice(0, -4) + "****";
 }
 
+function getExpiresAtBR(validDate: string): string {
+  const [y, m, d] = validDate.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + 1, 3, 0, 0)).toISOString();
+}
+
+function buildTokenResponse(row: typeof kioskTokensTable.$inferSelect) {
+  return {
+    token: row.token,
+    valid_date: row.valid_date,
+    criado_em: row.criado_em,
+    url_path: `/kiosk/${row.token}`,
+    expires_at: getExpiresAtBR(row.valid_date),
+  };
+}
+
 async function getOrCreateTodayToken(empresaId: number): Promise<typeof kioskTokensTable.$inferSelect> {
   const today = getCurrentDateStrBR();
-  const existing = await db
+  const token = generateToken();
+  await db
+    .insert(kioskTokensTable)
+    .values({ empresa_id: empresaId, token, valid_date: today })
+    .onConflictDoNothing();
+  const rows = await db
     .select()
     .from(kioskTokensTable)
     .where(and(eq(kioskTokensTable.empresa_id, empresaId), eq(kioskTokensTable.valid_date, today)));
-
-  if (existing[0]) return existing[0];
-
-  const token = generateToken();
-  const [created] = await db.insert(kioskTokensTable).values({ empresa_id: empresaId, token, valid_date: today }).returning();
-  console.log(`[kiosk] Generated new token for empresa ${empresaId} date=${today} token=${maskToken(token)}`);
-  return created!;
+  const row = rows[0]!;
+  console.log(`[kiosk] Token for empresa ${empresaId} date=${today} token=${maskToken(row.token)}`);
+  return row;
 }
 
 async function resolveToken(token: string): Promise<(typeof kioskTokensTable.$inferSelect) | null> {
@@ -57,11 +73,7 @@ router.get("/admin/today", requireAuth, async (req: Request, res: Response) => {
   }
   try {
     const row = await getOrCreateTodayToken(empresaId);
-    res.json({
-      token: row.token,
-      valid_date: row.valid_date,
-      criado_em: row.criado_em,
-    });
+    res.json(buildTokenResponse(row));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }
@@ -76,10 +88,10 @@ router.post("/admin/rotate", requireAuth, async (req: Request, res: Response) =>
   try {
     const today = getCurrentDateStrBR();
     await db.delete(kioskTokensTable).where(and(eq(kioskTokensTable.empresa_id, empresaId), eq(kioskTokensTable.valid_date, today)));
-    const token = generateToken();
-    const [created] = await db.insert(kioskTokensTable).values({ empresa_id: empresaId, token, valid_date: today }).returning();
-    console.log(`[kiosk] Rotated token for empresa ${empresaId} date=${today} token=${maskToken(token)}`);
-    res.json({ token: created!.token, valid_date: created!.valid_date, criado_em: created!.criado_em });
+    const newToken = generateToken();
+    const [created] = await db.insert(kioskTokensTable).values({ empresa_id: empresaId, token: newToken, valid_date: today }).returning();
+    console.log(`[kiosk] Rotated token for empresa ${empresaId} date=${today} token=${maskToken(newToken)}`);
+    res.json(buildTokenResponse(created!));
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
   }

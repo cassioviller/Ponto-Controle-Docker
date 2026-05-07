@@ -203,6 +203,18 @@ CREATE TABLE IF NOT EXISTS kiosk_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_kiosk_tokens_empresa_data
   ON kiosk_tokens (empresa_id, valid_date);
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'kiosk_tokens_empresa_id_valid_date_unique'
+      AND conrelid = 'kiosk_tokens'::regclass
+  ) THEN
+    ALTER TABLE kiosk_tokens
+      ADD CONSTRAINT kiosk_tokens_empresa_id_valid_date_unique
+      UNIQUE (empresa_id, valid_date);
+  END IF;
+END $$;
 `;
 
 export async function runDbInit(): Promise<void> {

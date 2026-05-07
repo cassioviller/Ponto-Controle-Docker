@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, unique } from "drizzle-orm/pg-core";
 import { empresasTable } from "./empresas";
 
 export const kioskTokensTable = pgTable("kiosk_tokens", {
@@ -9,6 +9,8 @@ export const kioskTokensTable = pgTable("kiosk_tokens", {
   token: text("token").notNull().unique(),
   valid_date: text("valid_date").notNull(),
   criado_em: timestamp("criado_em").notNull().defaultNow(),
-});
+}, (t) => ({
+  empresaDataUnique: unique("kiosk_tokens_empresa_id_valid_date_unique").on(t.empresa_id, t.valid_date),
+}));
 
 export type KioskToken = typeof kioskTokensTable.$inferSelect;

@@ -319,6 +319,17 @@ export interface KioskAdminToken {
   token: string;
   valid_date: string;
   criado_em: string;
+  /** Path relativo para o quiosque público (ex. /kiosk/abc123) */
+  url_path: string;
+  /** Data/hora UTC de expiração do token (meia-noite horário de Brasília) */
+  expires_at: string;
+}
+
+export interface KioskTodayRecord {
+  entrada: string | null;
+  saida_almoco: string | null;
+  volta_almoco: string | null;
+  saida: string | null;
 }
 
 export interface KioskFuncionario {
@@ -378,6 +389,10 @@ export type GetResumoParams = {
 
 export type ExportarFolhaParams = {
   mes: string;
+};
+
+export type GetKioskTodayRecordParams = {
+  funcionario_id: number;
 };
 
 export type ImportarExcelParams = {

@@ -398,6 +398,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/KioskAdminToken"
 
+  /kiosk/{token}/hoje:
+    get:
+      operationId: getKioskTodayRecord
+      tags: [kiosk]
+      summary: Registro de ponto de hoje de um funcionário (sem auth)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: funcionario_id
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registro de hoje
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/KioskTodayRecord"
+        "410":
+          description: Token expirado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /kiosk/{token}:
     get:
       operationId: getKioskPublicState
@@ -1118,10 +1148,40 @@ components:
           type: string
         criado_em:
           type: string
+        url_path:
+          type: string
+          description: Path relativo para o quiosque público (ex. /kiosk/abc123)
+        expires_at:
+          type: string
+          format: date-time
+          description: Data/hora UTC de expiração do token (meia-noite horário de Brasília)
       required:
         - token
         - valid_date
         - criado_em
+        - url_path
+        - expires_at
+
+    KioskTodayRecord:
+      type: object
+      properties:
+        entrada:
+          type: string
+          nullable: true
+        saida_almoco:
+          type: string
+          nullable: true
+        volta_almoco:
+          type: string
+          nullable: true
+        saida:
+          type: string
+          nullable: true
+      required:
+        - entrada
+        - saida_almoco
+        - volta_almoco
+        - saida
 
     KioskFuncionario:
       type: object

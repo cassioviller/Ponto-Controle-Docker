@@ -541,6 +541,14 @@ export const GetKioskAdminTodayResponse = zod.object({
   token: zod.string(),
   valid_date: zod.string(),
   criado_em: zod.string(),
+  url_path: zod
+    .string()
+    .describe("Path relativo para o quiosque público (ex. \/kiosk\/abc123)"),
+  expires_at: zod.coerce
+    .date()
+    .describe(
+      "Data\/hora UTC de expiração do token (meia-noite horário de Brasília)",
+    ),
 });
 
 /**
@@ -550,6 +558,32 @@ export const RotateKioskTokenResponse = zod.object({
   token: zod.string(),
   valid_date: zod.string(),
   criado_em: zod.string(),
+  url_path: zod
+    .string()
+    .describe("Path relativo para o quiosque público (ex. \/kiosk\/abc123)"),
+  expires_at: zod.coerce
+    .date()
+    .describe(
+      "Data\/hora UTC de expiração do token (meia-noite horário de Brasília)",
+    ),
+});
+
+/**
+ * @summary Registro de ponto de hoje de um funcionário (sem auth)
+ */
+export const GetKioskTodayRecordParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetKioskTodayRecordQueryParams = zod.object({
+  funcionario_id: zod.coerce.number(),
+});
+
+export const GetKioskTodayRecordResponse = zod.object({
+  entrada: zod.string().nullable(),
+  saida_almoco: zod.string().nullable(),
+  volta_almoco: zod.string().nullable(),
+  saida: zod.string().nullable(),
 });
 
 /**
