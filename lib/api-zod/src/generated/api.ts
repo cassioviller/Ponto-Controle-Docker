@@ -535,6 +535,92 @@ export const ExportarFolhaQueryParams = zod.object({
 });
 
 /**
+ * @summary Obter (ou gerar) token do quiosque do dia
+ */
+export const GetKioskAdminTodayResponse = zod.object({
+  token: zod.string(),
+  valid_date: zod.string(),
+  criado_em: zod.string(),
+});
+
+/**
+ * @summary Revogar token atual e gerar novo token para hoje
+ */
+export const RotateKioskTokenResponse = zod.object({
+  token: zod.string(),
+  valid_date: zod.string(),
+  criado_em: zod.string(),
+});
+
+/**
+ * @summary Resolver token público e retornar empresa + funcionários (sem auth)
+ */
+export const GetKioskPublicStateParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetKioskPublicStateResponse = zod.object({
+  empresa: zod.object({
+    nome: zod.string(),
+  }),
+  funcionarios: zod.array(
+    zod.object({
+      id: zod.number(),
+      nome: zod.string(),
+      cargo: zod.string().nullish(),
+    }),
+  ),
+  valid_date: zod.string(),
+});
+
+/**
+ * @summary Registrar ponto via quiosque (sem auth)
+ */
+export const KioskBaterPontoParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const KioskBaterPontoBody = zod.object({
+  funcionario_id: zod.number(),
+  tipo: zod.enum(["entrada", "saida_almoco", "volta_almoco", "saida"]),
+});
+
+export const KioskBaterPontoResponse = zod.object({
+  funcionario_id: zod.number(),
+  tipo: zod.string(),
+  horario: zod.string(),
+  data: zod.string(),
+  registro: zod.object({
+    id: zod.number(),
+    funcionario_id: zod.number(),
+    data: zod.string(),
+    entrada: zod.string().nullish(),
+    saida: zod.string().nullish(),
+    saida_almoco: zod.string().nullish(),
+    volta_almoco: zod.string().nullish(),
+    intervalo: zod.string().nullish(),
+    total_horas: zod.string().nullish(),
+    he_60: zod.string().nullish(),
+    he_100: zod.string().nullish(),
+    atrasos: zod.string().nullish(),
+    faltas: zod.string().nullish(),
+    observacoes: zod.string().nullish(),
+    justificativa: zod
+      .enum(["nenhuma", "justificada", "injustificada"])
+      .optional(),
+    horas_justificadas: zod.string().nullish(),
+    tipo_dia: zod.enum([
+      "normal",
+      "feriado",
+      "feriado_trabalhado",
+      "falta",
+      "falta_justificada",
+      "atraso_justificado",
+    ]),
+  }),
+});
+
+/**
  * @summary Importar registros de ponto via Excel
  */
 export const ImportarExcelQueryParams = zod.object({

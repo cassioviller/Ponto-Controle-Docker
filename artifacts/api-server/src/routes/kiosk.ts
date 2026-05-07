@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { randomBytes } from "crypto";
-import { z } from "zod/v4";
-import { db, kioskTokensTable, registrosPontoTable, funcionariosTable, empresasTable } from "@workspace/db";
+import { db } from "@workspace/db";
+import { kioskTokensTable, registrosPontoTable, funcionariosTable, empresasTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth";
 import {
@@ -86,7 +86,7 @@ router.post("/admin/rotate", requireAuth, async (req: Request, res: Response) =>
 });
 
 router.get("/:token", async (req: Request, res: Response) => {
-  const token = req.params["token"] ?? "";
+  const token = String(req.params["token"] ?? "");
   try {
     const row = await resolveToken(token);
     if (!row) {
@@ -109,20 +109,28 @@ router.get("/:token", async (req: Request, res: Response) => {
   }
 });
 
-const KioskBaterBody = z.object({
-  funcionario_id: z.number().int().positive(),
-  tipo: z.enum(["entrada", "saida_almoco", "volta_almoco", "saida"]),
-});
+const TIPOS_VALIDOS = ["entrada", "saida_almoco", "volta_almoco", "saida"] as const;
+type TipoBatida = typeof TIPOS_VALIDOS[number];
+
+function parseBaterBody(raw: unknown): { funcionario_id: number; tipo: TipoBatida } {
+  if (!raw || typeof raw !== "object") throw new Error("Corpo inválido");
+  const b = raw as Record<string, unknown>;
+  const funcionario_id = Number(b["funcionario_id"]);
+  if (!Number.isInteger(funcionario_id) || funcionario_id <= 0) throw new Error("funcionario_id inválido");
+  const tipo = b["tipo"] as string;
+  if (!TIPOS_VALIDOS.includes(tipo as TipoBatida)) throw new Error("tipo inválido");
+  return { funcionario_id, tipo: tipo as TipoBatida };
+}
 
 router.post("/:token/bater", async (req: Request, res: Response) => {
-  const token = req.params["token"] ?? "";
+  const token = String(req.params["token"] ?? "");
   try {
     const row = await resolveToken(token);
     if (!row) {
       res.status(410).json({ error: "Link expirado — peça o novo link de hoje ao seu gestor." });
       return;
     }
-    const body = KioskBaterBody.parse(req.body);
+    const body = parseBaterBody(req.body);
 
     const funcRows = await db
       .select()

@@ -7,6 +7,7 @@ const navItems = [
   { href: "/", label: "Resumo Geral", icon: "⊞" },
   { href: "/consolidado", label: "Consolidado", icon: "≡" },
   { href: "/bater-ponto", label: "Bater Ponto", icon: "◉" },
+  { href: "/quiosque", label: "Quiosque", icon: "▦" },
   { href: "/funcionarios", label: "Funcionários", icon: "✦" },
 ];
 

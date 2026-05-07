@@ -9,6 +9,8 @@ import Consolidado from "@/pages/Consolidado";
 import FolhaIndividual from "@/pages/FolhaIndividual";
 import BaterPonto from "@/pages/BaterPonto";
 import Funcionarios from "@/pages/Funcionarios";
+import Quiosque from "@/pages/Quiosque";
+import KioskPublico from "@/pages/KioskPublico";
 import Login from "@/pages/Login";
 import SuperAdmin from "@/pages/SuperAdmin";
 import NotFound from "@/pages/not-found";
@@ -59,6 +61,7 @@ function TenantApp() {
         <Route path="/funcionario/:id" component={FolhaIndividual} />
         <Route path="/bater-ponto" component={BaterPonto} />
         <Route path="/funcionarios" component={Funcionarios} />
+        <Route path="/quiosque" component={Quiosque} />
         <Route component={NotFound} />
       </Switch>
     </Layout>
@@ -71,6 +74,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/kiosk/:token" component={KioskPublico} />
       <Route path="/super-admin">
         <RequireSuperAdmin>
           <SuperAdmin />

@@ -315,6 +315,43 @@ export interface ImportacaoResponse {
   mes: string;
 }
 
+export interface KioskAdminToken {
+  token: string;
+  valid_date: string;
+  criado_em: string;
+}
+
+export interface KioskFuncionario {
+  id: number;
+  nome: string;
+  cargo?: string | null;
+}
+
+export type KioskPublicStateEmpresa = {
+  nome: string;
+};
+
+export interface KioskPublicState {
+  empresa: KioskPublicStateEmpresa;
+  funcionarios: KioskFuncionario[];
+  valid_date: string;
+}
+
+export type KioskBaterBodyTipo =
+  (typeof KioskBaterBodyTipo)[keyof typeof KioskBaterBodyTipo];
+
+export const KioskBaterBodyTipo = {
+  entrada: "entrada",
+  saida_almoco: "saida_almoco",
+  volta_almoco: "volta_almoco",
+  saida: "saida",
+} as const;
+
+export interface KioskBaterBody {
+  funcionario_id: number;
+  tipo: KioskBaterBodyTipo;
+}
+
 export type GetFuncionariosParams = {
   situacao?: string;
   vinculo?: string;

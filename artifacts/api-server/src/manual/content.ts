@@ -387,4 +387,49 @@ export const MANUAL_SECTIONS: ManualSection[] = [
       { kind: "img", file: "consolidado.png", caption: "Consolidado mensal — visão de fechamento" },
     ],
   },
+  {
+    title: "Quiosque de Ponto (Tablet/Recepção)",
+    profile: "Admin",
+    body: [
+      {
+        kind: "p",
+        text: "O Quiosque permite que os funcionários batam ponto sem precisar de senha, usando um link público exclusivo do dia. É ideal para deixar um tablet na recepção ou entrada da empresa.",
+      },
+      { kind: "h", text: "Como funciona o link diário?" },
+      {
+        kind: "p",
+        text: "O sistema gera automaticamente um link único a cada dia. O link muda à meia-noite (horário de Brasília) sem necessidade de ação do administrador. Cada empresa tem seu próprio link.",
+      },
+      { kind: "h", text: "Acessando o Quiosque como administrador" },
+      {
+        kind: "ul",
+        items: [
+          "No menu lateral, clique em 'Quiosque'.",
+          "Você verá o link do dia e o QR Code correspondente.",
+          "Copie o link e envie aos funcionários, ou exiba o QR Code em um telão/tablet.",
+          "O tempo até a renovação automática é exibido ao lado do link.",
+        ],
+      },
+      { kind: "h", text: "Como o funcionário bate ponto pelo Quiosque?" },
+      {
+        kind: "ul",
+        items: [
+          "O funcionário abre o link no navegador (ou escaneia o QR Code).",
+          "Seleciona o próprio nome na lista.",
+          "Clica no botão correspondente: Entrada, Saída Intervalo, Volta Intervalo ou Saída.",
+          "O horário é registrado automaticamente. Uma tela de confirmação é exibida.",
+        ],
+      },
+      { kind: "h", text: "O que fazer se o link vazar ou for compartilhado indevidamente?" },
+      {
+        kind: "p",
+        text: "Na tela do Quiosque, clique em 'Gerar novo link agora'. O link atual é invalidado imediatamente e um novo é gerado. Comunique o novo link apenas às pessoas autorizadas.",
+      },
+      { kind: "h", text: "O Quiosque registra todos os tipos de ponto?" },
+      {
+        kind: "p",
+        text: "Sim: Entrada, Saída do Intervalo, Volta do Intervalo e Saída. Os botões ficam desabilitados automaticamente conforme a sequência correta. Ao registrar a Saída, os totais de horas e eventuais horas extras são calculados da mesma forma que no registro manual.",
+      },
+    ],
+  },
 ];

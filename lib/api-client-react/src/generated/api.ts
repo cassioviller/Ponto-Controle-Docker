@@ -33,6 +33,9 @@ import type {
   HealthStatus,
   ImportacaoResponse,
   ImportarExcelParams,
+  KioskAdminToken,
+  KioskBaterBody,
+  KioskPublicState,
   MessageResponse,
   RegistroPonto,
   ResumoFuncionario,
@@ -1491,6 +1494,337 @@ export function useExportarFolha<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Obter (ou gerar) token do quiosque do dia
+ */
+export const getGetKioskAdminTodayUrl = () => {
+  return `/api/kiosk/admin/today`;
+};
+
+export const getKioskAdminToday = async (
+  options?: RequestInit,
+): Promise<KioskAdminToken> => {
+  return customFetch<KioskAdminToken>(getGetKioskAdminTodayUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetKioskAdminTodayQueryKey = () => {
+  return [`/api/kiosk/admin/today`] as const;
+};
+
+export const getGetKioskAdminTodayQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKioskAdminToday>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKioskAdminToday>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetKioskAdminTodayQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKioskAdminToday>>
+  > = ({ signal }) => getKioskAdminToday({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKioskAdminToday>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKioskAdminTodayQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKioskAdminToday>>
+>;
+export type GetKioskAdminTodayQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Obter (ou gerar) token do quiosque do dia
+ */
+
+export function useGetKioskAdminToday<
+  TData = Awaited<ReturnType<typeof getKioskAdminToday>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getKioskAdminToday>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKioskAdminTodayQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Revogar token atual e gerar novo token para hoje
+ */
+export const getRotateKioskTokenUrl = () => {
+  return `/api/kiosk/admin/rotate`;
+};
+
+export const rotateKioskToken = async (
+  options?: RequestInit,
+): Promise<KioskAdminToken> => {
+  return customFetch<KioskAdminToken>(getRotateKioskTokenUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getRotateKioskTokenMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rotateKioskToken>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rotateKioskToken>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["rotateKioskToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rotateKioskToken>>,
+    void
+  > = () => {
+    return rotateKioskToken(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RotateKioskTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rotateKioskToken>>
+>;
+
+export type RotateKioskTokenMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Revogar token atual e gerar novo token para hoje
+ */
+export const useRotateKioskToken = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rotateKioskToken>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rotateKioskToken>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getRotateKioskTokenMutationOptions(options));
+};
+
+/**
+ * @summary Resolver token público e retornar empresa + funcionários (sem auth)
+ */
+export const getGetKioskPublicStateUrl = (token: string) => {
+  return `/api/kiosk/${token}`;
+};
+
+export const getKioskPublicState = async (
+  token: string,
+  options?: RequestInit,
+): Promise<KioskPublicState> => {
+  return customFetch<KioskPublicState>(getGetKioskPublicStateUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetKioskPublicStateQueryKey = (token: string) => {
+  return [`/api/kiosk/${token}`] as const;
+};
+
+export const getGetKioskPublicStateQueryOptions = <
+  TData = Awaited<ReturnType<typeof getKioskPublicState>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKioskPublicState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetKioskPublicStateQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getKioskPublicState>>
+  > = ({ signal }) => getKioskPublicState(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getKioskPublicState>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetKioskPublicStateQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getKioskPublicState>>
+>;
+export type GetKioskPublicStateQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Resolver token público e retornar empresa + funcionários (sem auth)
+ */
+
+export function useGetKioskPublicState<
+  TData = Awaited<ReturnType<typeof getKioskPublicState>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getKioskPublicState>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetKioskPublicStateQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Registrar ponto via quiosque (sem auth)
+ */
+export const getKioskBaterPontoUrl = (token: string) => {
+  return `/api/kiosk/${token}/bater`;
+};
+
+export const kioskBaterPonto = async (
+  token: string,
+  kioskBaterBody: KioskBaterBody,
+  options?: RequestInit,
+): Promise<BaterPontoResponse> => {
+  return customFetch<BaterPontoResponse>(getKioskBaterPontoUrl(token), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(kioskBaterBody),
+  });
+};
+
+export const getKioskBaterPontoMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof kioskBaterPonto>>,
+    TError,
+    { token: string; data: BodyType<KioskBaterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof kioskBaterPonto>>,
+  TError,
+  { token: string; data: BodyType<KioskBaterBody> },
+  TContext
+> => {
+  const mutationKey = ["kioskBaterPonto"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof kioskBaterPonto>>,
+    { token: string; data: BodyType<KioskBaterBody> }
+  > = (props) => {
+    const { token, data } = props ?? {};
+
+    return kioskBaterPonto(token, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type KioskBaterPontoMutationResult = NonNullable<
+  Awaited<ReturnType<typeof kioskBaterPonto>>
+>;
+export type KioskBaterPontoMutationBody = BodyType<KioskBaterBody>;
+export type KioskBaterPontoMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Registrar ponto via quiosque (sem auth)
+ */
+export const useKioskBaterPonto = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof kioskBaterPonto>>,
+    TError,
+    { token: string; data: BodyType<KioskBaterBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof kioskBaterPonto>>,
+  TError,
+  { token: string; data: BodyType<KioskBaterBody> },
+  TContext
+> => {
+  return useMutation(getKioskBaterPontoMutationOptions(options));
+};
 
 /**
  * @summary Importar registros de ponto via Excel
