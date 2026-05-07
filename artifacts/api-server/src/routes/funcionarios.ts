@@ -11,7 +11,7 @@ import {
   jornadasPadraoTable,
   feriadosTable,
 } from "@workspace/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or, isNull } from "drizzle-orm";
 import {
   calcFromTipoDia,
   legacyMirrorFromTipo,
@@ -219,11 +219,17 @@ router.put("/funcionarios/:id", async (req, res) => {
 
 /**
  * Recalcula HE 60% / HE 100% / atrasos / total_horas / faltas para todos os
- * registros do funcionário com `tipo_dia = 'normal'`, aplicando a nova regra
- * de `he_100_acima_2h`. Outros tipos de dia não são afetados. Roda em uma
- * única transação. Retorna a quantidade de linhas atualizadas.
+ * registros do funcionário com `tipo_dia = 'normal'` **ou nulo** (legado),
+ * usando a jornada específica de cada dia. Outros tipos de dia não são afetados.
+ * Roda em uma única transação. Retorna a quantidade de linhas atualizadas.
+ *
+ * Chamado quando:
+ *  - `he_100_acima_2h` muda no cadastro do funcionário.
+ *  - Jornadas padrão do funcionário são salvas (PUT /funcionarios/:id/jornadas),
+ *    garantindo que registros existentes do sábado (ou qualquer dia com jornada
+ *    específica) sejam recalculados com a nova carga horária correta.
  */
-async function backfillRegistrosNormais(
+export async function backfillRegistrosNormais(
   funcionario: typeof funcionariosTable.$inferSelect,
 ): Promise<number> {
   const jornadas = await db
@@ -247,7 +253,10 @@ async function backfillRegistrosNormais(
     .where(
       and(
         eq(registrosPontoTable.funcionario_id, funcionario.id),
-        eq(registrosPontoTable.tipo_dia, "normal"),
+        or(
+          isNull(registrosPontoTable.tipo_dia),
+          eq(registrosPontoTable.tipo_dia, "normal"),
+        ),
       ),
     );
 

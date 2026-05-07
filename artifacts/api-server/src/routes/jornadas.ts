@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { jornadasPadraoTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { loadOwnedFuncionario } from "../lib/tenantGuard";
+import { backfillRegistrosNormais } from "./funcionarios";
 
 const router = Router();
 
@@ -66,9 +67,20 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
     // funcionario rather than trusting any client-supplied value.
     const jornadaEmpresaId = funcionario.empresa_id;
 
+    // Normaliza campos de horário: trata string vazia como null para que a
+    // condição de truthiness em calcFromTipoDia funcione corretamente e dias
+    // sem horário configurado (is_folga) não causem fallback inesperado para
+    // a jornada diária majoritária.
+    const normalizeTime = (v: string | null | undefined): string | null =>
+      v ? v.trim() || null : null;
+
     const result = [];
     for (const j of jornadas) {
       const semana = normalizeSemana(j.semana);
+      const entradaPadrao = normalizeTime(j.entrada_padrao);
+      const saidaPadrao = normalizeTime(j.saida_padrao);
+      const intervaloPadrao = normalizeTime(j.intervalo_padrao);
+
       const existing = await db
         .select()
         .from(jornadasPadraoTable)
@@ -84,9 +96,9 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
         const [updated] = await db
           .update(jornadasPadraoTable)
           .set({
-            entrada_padrao: j.entrada_padrao ?? null,
-            saida_padrao: j.saida_padrao ?? null,
-            intervalo_padrao: j.intervalo_padrao ?? null,
+            entrada_padrao: entradaPadrao,
+            saida_padrao: saidaPadrao,
+            intervalo_padrao: intervaloPadrao,
             is_folga: j.is_folga ?? false,
           })
           .where(eq(jornadasPadraoTable.id, existing[0].id))
@@ -104,9 +116,9 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
             empresa_id: jornadaEmpresaId,
             dia_semana: j.dia_semana,
             semana,
-            entrada_padrao: j.entrada_padrao ?? null,
-            saida_padrao: j.saida_padrao ?? null,
-            intervalo_padrao: j.intervalo_padrao ?? null,
+            entrada_padrao: entradaPadrao,
+            saida_padrao: saidaPadrao,
+            intervalo_padrao: intervaloPadrao,
             is_folga: j.is_folga ?? false,
           })
           .returning();
@@ -129,7 +141,13 @@ router.put("/funcionarios/:id/jornadas", async (req, res) => {
         );
     }
 
-    res.json(result);
+    // Recalcula todos os registros 'normal' (ou tipo_dia nulo) do funcionário
+    // com a jornada específica de cada dia. Isso garante que registros
+    // existentes do sábado — ou qualquer dia com carga horária diferente da
+    // maioria — sejam corrigidos imediatamente após a mudança de jornada.
+    const registros_recalculados = await backfillRegistrosNormais(funcionario);
+
+    res.json({ jornadas: result, registros_recalculados });
   } catch (err) {
     res.status(400).json({ error: errMsg(err) });
   }
