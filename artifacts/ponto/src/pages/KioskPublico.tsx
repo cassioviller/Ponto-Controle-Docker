@@ -12,7 +12,7 @@ const TIPO_LABEL: Record<TipoBater, string> = {
 interface KioskFuncionario { id: number; nome: string; cargo?: string | null }
 interface KioskState { empresa: { nome: string }; funcionarios: KioskFuncionario[]; valid_date: string }
 interface TodayRecord { entrada?: string | null; saida_almoco?: string | null; volta_almoco?: string | null; saida?: string | null }
-interface BaterResp { funcionario_id: number; tipo: string; horario: string; data: string }
+interface BaterResp { funcionario_id: number; tipo: string; horario: string; data: string; registro?: TodayRecord }
 
 function getBaseUrl(): string {
   const base = import.meta.env.BASE_URL ?? "/";
@@ -36,6 +36,14 @@ function clockTick() {
   const dd = String(now.getDate()).padStart(2, "0");
   const days = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
   return { time: `${hh}:${mm}:${ss}`, date: `${days[now.getDay()]}, ${dd}/${mo}/${yyyy}` };
+}
+
+function getMsToMidnightBR(): number {
+  const now = new Date();
+  const brNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const brMidnight = new Date(brNow);
+  brMidnight.setHours(24, 0, 0, 0);
+  return Math.max(0, brMidnight.getTime() - brNow.getTime());
 }
 
 const BUTTONS = [
@@ -65,6 +73,11 @@ export default function KioskPublico() {
     return () => clearInterval(id);
   }, []);
 
+  const handleExpired = useCallback(() => {
+    setExpired(true);
+    setState(null);
+  }, []);
+
   const loadState = useCallback(async () => {
     try {
       const data: KioskState = await apiFetch(`/api/kiosk/${token}`);
@@ -73,43 +86,39 @@ export default function KioskPublico() {
       setLoadError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro";
-      if (msg.includes("expirado") || msg.includes("410")) {
-        setExpired(true);
+      if (msg.includes("expirado")) {
+        handleExpired();
       } else {
         setLoadError(msg);
       }
     }
-  }, [token]);
+  }, [token, handleExpired]);
 
   useEffect(() => { loadState(); }, [loadState]);
 
   useEffect(() => {
     if (!state) return;
-    const now = new Date();
-    const msToMidnight =
-      new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
-    const id = setTimeout(() => {
-      setExpired(true);
-      setState(null);
-    }, msToMidnight + 1000);
+    const msToMidnight = getMsToMidnightBR();
+    const id = setTimeout(() => handleExpired(), msToMidnight + 1500);
     return () => clearTimeout(id);
-  }, [state]);
+  }, [state, handleExpired]);
+
+  useEffect(() => {
+    if (!token) return;
+    const id = setInterval(() => {
+      loadState();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [token, loadState]);
 
   const loadTodayRecord = useCallback(async (funcId: number) => {
     try {
-      const now = new Date();
-      const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      const base = getBaseUrl();
-      const res = await fetch(`${base}/api/funcionarios/${funcId}/registros?mes=${mes}`, {});
-      if (!res.ok) return;
-      const folha = await res.json() as { registros: Array<{ data: string } & TodayRecord> };
-      const dd = String(now.getDate()).padStart(2, "0");
-      const mo = String(now.getMonth() + 1).padStart(2, "0");
-      const todayStr = `${now.getFullYear()}-${mo}-${dd}`;
-      const reg = folha.registros.find((r) => r.data === todayStr) ?? {};
-      setTodayRec(reg);
-    } catch { /* ignore */ }
-  }, []);
+      const rec = await apiFetch(`/api/kiosk/${token}/hoje?funcionario_id=${funcId}`);
+      setTodayRec(rec);
+    } catch {
+      setTodayRec({});
+    }
+  }, [token]);
 
   useEffect(() => {
     if (selectedId) loadTodayRecord(selectedId);
@@ -127,10 +136,14 @@ export default function KioskPublico() {
         body: JSON.stringify({ funcionario_id: selectedId, tipo }),
       });
       setConfirmation(result);
-      await loadTodayRecord(selectedId);
+      if (result.registro) {
+        setTodayRec(result.registro);
+      } else {
+        await loadTodayRecord(selectedId);
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro";
-      if (msg.includes("expirado")) { setExpired(true); setState(null); }
+      if (msg.includes("expirado")) { handleExpired(); }
       else setErrorMsg(msg);
     } finally {
       setLoading(false);

@@ -10,10 +10,16 @@ function getKioskUrl(token: string): string {
   return `${origin}${basePath}/kiosk/${token}`;
 }
 
-function getTimeUntilMidnight(): string {
+function getMsToMidnightBR(): number {
   const now = new Date();
-  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const diff = midnight.getTime() - now.getTime();
+  const brNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  const brMidnight = new Date(brNow);
+  brMidnight.setHours(24, 0, 0, 0);
+  return Math.max(0, brMidnight.getTime() - brNow.getTime());
+}
+
+function getTimeUntilMidnight(): string {
+  const diff = getMsToMidnightBR();
   const h = Math.floor(diff / 3600000);
   const m = Math.floor((diff % 3600000) / 60000);
   return `${h}h ${m}min`;
@@ -37,9 +43,7 @@ export default function Quiosque() {
 
   useEffect(() => {
     if (!tokenData) return;
-    const now = new Date();
-    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const msLeft = midnight.getTime() - now.getTime();
+    const msLeft = getMsToMidnightBR();
     const id = setTimeout(() => refetch(), msLeft + 1500);
     return () => clearTimeout(id);
   }, [tokenData, refetch]);

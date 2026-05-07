@@ -85,6 +85,41 @@ router.post("/admin/rotate", requireAuth, async (req: Request, res: Response) =>
   }
 });
 
+router.get("/:token/hoje", async (req: Request, res: Response) => {
+  const token = String(req.params["token"] ?? "");
+  const funcionarioId = parseInt(String(req.query["funcionario_id"] ?? ""), 10);
+  if (!funcionarioId || isNaN(funcionarioId)) {
+    res.status(400).json({ error: "funcionario_id é obrigatório" });
+    return;
+  }
+  try {
+    const row = await resolveToken(token);
+    if (!row) {
+      res.status(410).json({ error: "Link expirado — peça o novo link de hoje ao seu gestor." });
+      return;
+    }
+    const today = getCurrentDateStrBR();
+    const regs = await db
+      .select()
+      .from(registrosPontoTable)
+      .where(and(eq(registrosPontoTable.funcionario_id, funcionarioId), eq(registrosPontoTable.data, today)));
+    const reg = regs[0] ?? null;
+    const funcRows = await db.select({ empresa_id: funcionariosTable.empresa_id }).from(funcionariosTable).where(eq(funcionariosTable.id, funcionarioId));
+    if (!funcRows[0] || funcRows[0].empresa_id !== row.empresa_id) {
+      res.status(403).json({ error: "Funcionário não pertence a esta empresa" });
+      return;
+    }
+    res.json({
+      entrada: reg?.entrada ?? null,
+      saida_almoco: reg?.saida_almoco ?? null,
+      volta_almoco: reg?.volta_almoco ?? null,
+      saida: reg?.saida ?? null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 router.get("/:token", async (req: Request, res: Response) => {
   const token = String(req.params["token"] ?? "");
   try {
