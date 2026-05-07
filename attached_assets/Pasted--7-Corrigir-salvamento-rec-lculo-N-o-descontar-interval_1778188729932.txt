@@ -1,0 +1,38 @@
+#7 - Corrigir salvamento + recálculo 'Não descontar intervalo' + testes E2E
+What & Why
+Dois bugs relacionados ao toggle "Não descontar intervalo (estagiário)":
+
+Recálculo ausente: A rota PUT /funcionarios/:id só dispara backfillRegistrosNormais quando he_100_acima_2h muda (linha 207-212 de funcionarios.ts). A mesma lógica não está implementada para intervalo_nao_descontado. Resultado: registros existentes continuam com o cálculo errado após ativar/desativar o toggle.
+
+Aparência de "não salvar": Como os registros não são recalculados, o usuário não vê mudança nos totais, dando a impressão de que o campo nem foi salvo.
+
+O backfillRegistrosNormais já passa intervaloNaoDescontado corretamente para calcFromTipoDia — falta apenas disparar o backfill quando o campo muda.
+
+Done looks like
+Ao salvar um funcionário com mudança em intervalo_nao_descontado, todos os registros tipo_dia = 'normal' são recalculados automaticamente (intervalo não é subtraído quando true).
+registros_recalculados na resposta da PUT reflete a quantidade atualizada.
+Toast informativo exibido na UI quando registros são recalculados (usando a mesma mensagem já existente para he_100_acima_2h, adaptada para mencionar o intervalo).
+Testes E2E (Puppeteer, via script em artifacts/api-server/src/e2e/) cobrem:
+Criar funcionário estagiário com intervalo_nao_descontado: true → criar registro → verificar que total_horas não desconta intervalo.
+Criar funcionário normal → criar registro → ativar intervalo_nao_descontado via PUT → verificar que registros_recalculados > 0 e que total_horas foi recalculado corretamente no banco.
+Desativar intervalo_nao_descontado → verificar recálculo reverso.
+Script de teste adicionado em package.json do api-server como "test:e2e".
+Out of scope
+Testes de UI via browser (Puppeteer em modo headless contra a API HTTP é suficiente).
+Alteração em outros tipos de dia (férias, falta, etc.) — apenas tipo_dia = 'normal'.
+Steps
+Corrigir trigger de backfill na rota PUT — Em artifacts/api-server/src/routes/funcionarios.ts, adicionar bloco análogo ao de he_100_acima_2h que dispara backfillRegistrosNormais quando intervalo_nao_descontado muda. Acumular o total de registros_recalculados de ambos os triggers.
+
+Atualizar toast na UI — Em artifacts/ponto/src/pages/Funcionarios.tsx, ajustar a mensagem do toast de recálculo para ser genérica (ex: "registros foram recalculados com a nova configuração do funcionário") cobrindo tanto he_100_acima_2h quanto intervalo_nao_descontado.
+
+Escrever testes E2E — Criar artifacts/api-server/src/e2e/intervalo-nao-descontado.e2e.ts com testes usando node:http ou fetch contra a API local (sem Puppeteer browser — são testes de integração HTTP). Cobrir os cenários listados em "Done looks like". Adicionar script "test:e2e": "tsx src/e2e/intervalo-nao-descontado.e2e.ts" ao package.json.
+
+Relevant files
+artifacts/api-server/src/routes/funcionarios.ts:196-218
+artifacts/api-server/src/routes/funcionarios.ts:232-318
+artifacts/ponto/src/pages/Funcionarios.tsx:425-459
+lib/api-zod/src/generated/api.ts:54,91
+lib/db/src/schema/funcionarios.ts:38
+Dependencies
+
+Intervalo não descontado para estagiários

@@ -443,7 +443,7 @@ export default function Funcionarios() {
         if (typeof recalc === "number" && recalc > 0) {
           toast({
             title: "Registros recalculados",
-            description: `${recalc} registro(s) com Tipo do Dia 'normal' foram recalculados pela nova regra de HE.`,
+            description: `${recalc} registro(s) foram recalculados com a nova configuração do funcionário.`,
           });
         }
       } else {

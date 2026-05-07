@@ -203,11 +203,15 @@ router.put("/funcionarios/:id", async (req, res) => {
       return;
     }
 
-    let registros_recalculados = 0;
-    if (
+    const he100Changed =
       typeof body.he_100_acima_2h === "boolean" &&
-      body.he_100_acima_2h !== prev.he_100_acima_2h
-    ) {
+      body.he_100_acima_2h !== prev.he_100_acima_2h;
+    const intervaloNdChanged =
+      typeof body.intervalo_nao_descontado === "boolean" &&
+      body.intervalo_nao_descontado !== prev.intervalo_nao_descontado;
+
+    let registros_recalculados = 0;
+    if (he100Changed || intervaloNdChanged) {
       registros_recalculados = await backfillRegistrosNormais(row);
     }
 
