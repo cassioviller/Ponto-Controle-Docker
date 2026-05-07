@@ -619,6 +619,8 @@ components:
           nullable: true
         he_100_acima_2h:
           type: boolean
+        intervalo_nao_descontado:
+          type: boolean
         criado_em:
           type: string
       required:
@@ -708,6 +710,8 @@ components:
           nullable: true
         he_100_acima_2h:
           type: boolean
+        intervalo_nao_descontado:
+          type: boolean
       required:
         - codigo
         - nome
@@ -781,6 +785,8 @@ components:
           type: string
           nullable: true
         he_100_acima_2h:
+          type: boolean
+        intervalo_nao_descontado:
           type: boolean
 
     UpdateFuncionarioResponse:

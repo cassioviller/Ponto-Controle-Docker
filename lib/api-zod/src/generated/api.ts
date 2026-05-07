@@ -306,6 +306,7 @@ export const GetRegistrosFuncionarioResponse = zod.object({
     escala_quinzenal: zod.boolean(),
     quinzena_referencia: zod.string().nullish(),
     he_100_acima_2h: zod.boolean(),
+    intervalo_nao_descontado: zod.boolean().optional(),
     criado_em: zod.string(),
   }),
   mes: zod.string(),
